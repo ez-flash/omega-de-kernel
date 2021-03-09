@@ -1922,7 +1922,7 @@ int main(void) {
 	scanKeys();
 	u16 keys = keysDown();	
 	
-	u16 Built_in_ver = 1;   //Newest_FW_ver
+	u16 Built_in_ver = 2;   //Newest_FW_ver
 	u16 Current_FW_ver = Read_FPGA_ver();
 
 	if((Current_FW_ver < Built_in_ver) || (Current_FW_ver == 99))//99 is test ver
