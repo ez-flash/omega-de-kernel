@@ -109,5 +109,5 @@
 #define assress_saveMODE 64
 #define assress_max 65
 
-#define newomega_top_bin_size  0x536d0//0x534A8//0x535bc////
+#define newomega_top_bin_size  0x535bc////0x536d0//0x534A8//
 #define newomega_top_bin_address (void*)0x08195000

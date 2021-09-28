@@ -687,8 +687,15 @@ void Show_MENU(u32 menu_select,PAGE_NUM page,u32 havecht,u32 Save_num,u32 is_men
 		if(line== menu_select){
 			name_color = gl_color_selected;
 		}
-		else if(line == 5)
-		{
+		else if(line == 1){
+				if((gl_reset_on |  gl_rts_on| gl_sleep_on| gl_cheat_on) == 0)	{
+					name_color = gl_color_MENU_btn;
+				}	
+				else {
+					name_color = gl_color_text;	
+				}
+		}
+		else if(line == 5){
 			if(havecht==1 && gl_cheat_on==0)
 			{
 				name_color = gl_color_MENU_btn;
@@ -1188,7 +1195,7 @@ u32 SavefileWrite(TCHAR *filename,u32 savesize)
 u8 Check_saveMODE(u8 gamecode[])
 {
 	u32 i;
-	BYTE savemode = 0xFF;
+	BYTE savemode = 0x10;
 	dmaCopy((void*)saveMODE_table, (void*)pReadCache, sizeof(saveMODE_table));
 	for(i=0;i<3000;i++)
 	{
@@ -1228,7 +1235,7 @@ u8 Get_saveMODE(u8 Save_num,u32 gamefilesize)
 			case 0x3:saveMODE=0x21;break;//EEPROM512
 			case 0x4:saveMODE=0x32;break;//FLASH64
 			case 0x5:saveMODE=0x31;break;//FLASH128
-			case 0xf:saveMODE=0xee;break;	
+			case 0xf:saveMODE=0x10;break;	
 			default:saveMODE=0x00;break;					
 		}
 	}
@@ -1922,7 +1929,7 @@ int main(void) {
 	scanKeys();
 	u16 keys = keysDown();	
 	
-	u16 Built_in_ver = 3;   //Newest_FW_ver
+	u16 Built_in_ver = 4;   //Newest_FW_ver
 	u16 Current_FW_ver = Read_FPGA_ver();
 
 	if((Current_FW_ver < Built_in_ver) || (Current_FW_ver == 99))//99 is test ver
@@ -1998,7 +2005,7 @@ refind_file:
 					if ( folder_total > MAX_folder )//cut
 	      		break;
 				}
-				else if(	fileinfo.fattrib == AM_ARC)
+				else if(	(fileinfo.fattrib == AM_ARC) || (fileinfo.fattrib == 0x21) )
 				{
 					memcpy(pFilename_buffer[game_total_SD].filename,fileinfo.fname,100);
 					pFilename_buffer[game_total_SD].filename[99] = 0;
@@ -2784,7 +2791,13 @@ re_show_menu:
 		}
 		else if(keysdown & KEY_A)
 		{
-			if(MENU_line==5){
+			if(MENU_line==1){//check switch
+				if((gl_reset_on |  gl_rts_on| gl_sleep_on| gl_cheat_on) == 0)	{
+				// do nothing
+				}
+				else break;
+			}
+			else if(MENU_line==5){
 				//open cht file
 				Open_cht_file(pfilename,havecht);	
 				re_menu=1;
