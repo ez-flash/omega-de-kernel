@@ -1925,21 +1925,9 @@ int main(void) {
 	SD_Disable();	
 	Set_RTC_status(1);
 
-	//check FW
-	scanKeys();
-	u16 keys = keysDown();	
-	
-	u16 Built_in_ver = 4;   //Newest_FW_ver
-	u16 Current_FW_ver = Read_FPGA_ver();
 
-	if((Current_FW_ver < Built_in_ver) || (Current_FW_ver == 99))//99 is test ver
-	{
-		Check_FW_update(Current_FW_ver,Built_in_ver);
-	}
-	/*else if(keys & KEY_L) {
-		Check_FW_update(Current_FW_ver,Built_in_ver);
-	}*/
-		
+	//check FW
+	Check_FW_update();	
 		
 	DrawPic((u16*)gImage_splash, 0, 0, 240, 160, 0, 0, 1);	
 	CheckLanguage();	

@@ -477,28 +477,23 @@ void IWRAM_CODE Set_64MROM_flag(u16  flag)
 	*(u16 *)0x9fc0000 = 0x1500;
 }
 // --------------------------------------------------------------------
-
-void IWRAM_CODE Check_FW_update(u16 Current_FW_ver,u16 Built_in_ver)
+void IWRAM_CODE FW_update(u16 DEcard_FW_readver,u16 FW_built_in_ver,void* FWbinaddress,u32 FWsize,u32 build_crc32,u32 FW_wirte_address)
 {
 	vu16 busy;
 	vu32 offset;
 	u32 offset_Y = 5;
 	u32 line_x = 17;
 	char msg[100];
-
-	//DEBUG_printf("Current_FW_ver %x ",Current_FW_ver);	
+	
 	Clear(0, 0, 240, 160, RGB(0,18,24), 1);
 	
-	sprintf(msg,"FIRMWARE UPDATE");
-	DrawHZText12(msg,0,75,offset_Y+0*line_x, 0x7FFF,1);	
+	sprintf(msg,"Rev.%s FIRMWARE UPDATE",((DEcard_FW_readver&0xA000)==0xA000)? "B":"A");
+	DrawHZText12(msg,0,57,offset_Y+0*line_x, 0x7FFF,1);	
 	
-	u32 get_crc32 = crc32( newomega_top_bin_address, newomega_top_bin_size);
+	u32 get_crc32 = crc32( FWbinaddress, FWsize);
 	//DEBUG_printf("get_crc32 %x ",get_crc32);
 	
-	//if(get_crc32 != 0x480D0853) //fw1 
-	//if(get_crc32 != 0xA07D712F) //fw2
-	//if(get_crc32 != 0x3DA3D970) //fw3
-	if(get_crc32 != 0x76352215) //fw4
+	if(get_crc32 != build_crc32)
 	{
 			sprintf(msg,"check crc32 error!");		
 			DrawHZText12(msg,0,2,offset_Y+1*line_x, RGB(31,00,00),1);
@@ -517,10 +512,10 @@ void IWRAM_CODE Check_FW_update(u16 Current_FW_ver,u16 Built_in_ver)
 			}		
 	}
 
-	sprintf(msg,"Current firmware version: V%02d",Current_FW_ver);
+	sprintf(msg,"Current firmware version: V%02d",DEcard_FW_readver&0xFF);
 	DrawHZText12(msg,0,2,offset_Y+1*line_x, 0x7FFF,1);	
 	
-	sprintf(msg,"Will be updated to version: V%02d",Built_in_ver);
+	sprintf(msg,"Will be updated to version: V%02d",FW_built_in_ver);
 	DrawHZText12(msg,0,2,offset_Y+2*line_x, 0x7FFF,1);	
 
 	sprintf(msg,"Press [A] to update");
@@ -543,16 +538,16 @@ void IWRAM_CODE Check_FW_update(u16 Current_FW_ver,u16 Built_in_ver)
 			sprintf(msg,"progress:");		
 			DrawHZText12(msg,0,2,offset_Y+6*line_x, 0x7FFF,1);
 									
-			for(offset = 0x0000;offset<newomega_top_bin_size;offset+=256)
+			for(offset = 0x0000;offset<FWsize;offset+=256)
 			{
 					
-				sprintf(msg," %lu%%",(offset*100/newomega_top_bin_size+1));
+				sprintf(msg," %lu%%",(offset*100/FWsize+1));
 				Clear(54, offset_Y+6*line_x,120,15,RGB(0,18,24),1);	
 				DrawHZText12(msg,0,54,offset_Y+6*line_x, 0x7FFF,1);	
 				
-				FAT_table_buffer[0] = (0x80000 + offset);//omega DE 0x80000
+				FAT_table_buffer[0] = (FW_wirte_address + offset);//omega DE 0x80000
 				
-				dmaCopy(newomega_top_bin_address+offset,&FAT_table_buffer[1],256);  
+				dmaCopy(FWbinaddress+offset,&FAT_table_buffer[1],256);  
 				Send_FATbuffer(FAT_table_buffer,2); 
 								   
 				SPI_Write_Enable();
@@ -575,6 +570,23 @@ void IWRAM_CODE Check_FW_update(u16 Current_FW_ver,u16 Built_in_ver)
 			break;
 		}
 	}
+}
+// --------------------------------------------------------------------
+void IWRAM_CODE Check_FW_update(/*u16 Current_FW_ver,u16 Built_in_ver*/)
+{
+	u16 DEcard_FW_readver = Read_FPGA_ver();
+	u16 DEcard_FW_ver = DEcard_FW_readver & 0x00FF;
+
+	if((DEcard_FW_readver & 0xF000) == 0xB000  || (DEcard_FW_readver & 0xF000) == 0xA000){ //lx16  note that, 0xA000 is initially,fix here
+		if(DEcard_FW_ver < LX16_FW_built_in_ver){
+			FW_update(DEcard_FW_readver,LX16_FW_built_in_ver,LX16_newomega_top_bin_address,LX16_newomega_top_bin_size,LX16_FW_crc32,LX16_wirte_address);
+		}
+	}		
+	else{//lx9
+		if(DEcard_FW_ver < LX9_FW_built_in_ver){
+			FW_update(DEcard_FW_readver,LX9_FW_built_in_ver,LX9_newomega_top_bin_address,LX9_newomega_top_bin_size,LX9_FW_crc32,LX9_wirte_address);			
+		}
+	}		
 }
 // --------------------------------------------------------------------
 static const u32 crc32tab[] = {
