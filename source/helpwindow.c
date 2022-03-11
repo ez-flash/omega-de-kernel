@@ -14,6 +14,7 @@
 
 
 extern u16 gl_select_lang;
+u16 Rev;
 //---------------------------------------------------------------------------------
 void Show_ver(void)
 {
@@ -22,11 +23,12 @@ void Show_ver(void)
 	u16 FPGAver = Read_FPGA_ver();
 	sprintf(msg,"FW:%d %s",FPGAver&0xFF,ver);
 	DrawHZText12(msg,0,160,3, gl_color_text,1);	
+	Rev = FPGAver & 0xF000;
 }
 //---------------------------------------------------------------------------------
 void Show_help_window()
 {
-	
+	char msg[20];
 	Show_ver();
 	if(gl_select_lang == 0xE1E1)//english
 	{
@@ -46,7 +48,10 @@ void Show_help_window()
 		
 	DrawHZText12("L+START:",0,3,65, gl_color_selected,1);
 		DrawHZText12(gl_LSTART_help,0,52,65, gl_color_text,1);	
-		
+	
+	sprintf(msg,"Rev.%s",((Rev==0xB000)||(Rev==0xA000)) ? "B":"A");
+	DrawHZText12(msg,0,3,149, gl_color_text,1);	
+				
 	DrawHZText12(gl_online_manual,0,240-70-7,77, gl_color_text,1);
 	while(1)
 	{
