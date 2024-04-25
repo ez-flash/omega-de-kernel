@@ -1259,14 +1259,14 @@ u32 IWRAM_CODE Loadfile2PSRAM(TCHAR *filename)
 	{
 		filesize = f_size(&gfile);		
 		Clear(60,160-15,120,15,gl_color_cheat_black,1);	
-		DrawHZText12(gl_writing,0,78,160-15,gl_color_text,1);	
+		DrawHZText12(gl_writing,0,70,160-15,gl_color_text,1);	
 
 		f_lseek(&gfile, 0x0000);
 		for(blocknum=0x0000;blocknum<filesize;blocknum+=0x20000)
 		{		
-			sprintf(msg,"%luMb",(blocknum)/0x20000);
-			Clear(78+54,160-15,110,15,gl_color_cheat_black,1);
-			DrawHZText12(msg,0,78+54,160-15,gl_color_text,1);
+			sprintf(msg,"%luMb/%luMb",(blocknum)/0x20000,filesize/0x20000);
+			Clear(70+54,160-15,110,15,gl_color_cheat_black,1);
+			DrawHZText12(msg,0,70+54,160-15,gl_color_text,1);
 			f_read(&gfile, pReadCache, 0x20000, &ret);//pReadCache max 0x20000 Byte
 			
 			if((gl_reset_on==1) || (gl_rts_on==1) || (gl_sleep_on==1) || (gl_cheat_on==1))		    
@@ -1962,6 +1962,7 @@ int main(void) {
 	Read_NOR_info();	
 	gl_norOffset = 0x000000;
 	game_total_NOR = GetFileListFromNor();//initialize to prevent direct writes to NOR without page turning
+
 	if(game_total_NOR==0)
 	{
 		memset(pNorFS,00,sizeof(FM_NOR_FS)*MAX_NOR);
@@ -2925,9 +2926,9 @@ re_show_menu:
 						f_read(&gfile, pReadCache, 0x20000, (UINT*)&ret);
 						f_close(&gfile);
 						SetTrimSize(pReadCache,gamefilesize,0x20000,0x0,SAVEMODE);						
-						
 						if((gl_engine_sel==0) || (gl_select_lang == 0xE2E2))
-						{				
+						{	
+								get_find:		
 			    		FAT_table_buffer[0x1F4/4] = SET_PARAMETER_MODE;
 							Send_FATbuffer(FAT_table_buffer,1);												
 			    		res=Loadfile2PSRAM(pfilename);
@@ -2936,8 +2937,15 @@ re_show_menu:
 						}
 						else 
 						{
-			    		use_internal_engine(GAMECODE);	
-			    		Send_FATbuffer(FAT_table_buffer,0);//Loading rom	
+			    		res=use_internal_engine(GAMECODE);	
+			    		if(res == 1) 
+			    		{
+			    			Send_FATbuffer(FAT_table_buffer,0);//Loading rom	
+			    		}
+			    		else
+			    		{
+			    			goto get_find;
+			    		}
 						}
 					}	
 	    		Patch_SpecialROM_sleepmode();//
