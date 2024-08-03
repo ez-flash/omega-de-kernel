@@ -1,0 +1,37 @@
+name: Run Executable and Upload Artifacts
+
+on: workflow_run:
+  workflows: ["Build with Make"]
+  types:
+    - completed
+
+jobs:
+  run_and_upload:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Set up Wine
+      run: |
+        sudo dpkg --add-architecture i386
+        sudo mkdir -pm755 /etc/apt/keyrings
+        wget -O /etc/apt/keyrings/winehq-archive.key https://dl.winehq.org/wine-builds/winehq.key
+        sudo wget -NP /etc/apt/sources.list.d https://dl.winehq.org/wine-builds/ubuntu/dists/bionic/winehq-bionic.sources
+        sudo apt update
+        sudo apt install --install-recommends winehq-stable
+
+    - name: Download build artifact
+      uses: actions/download-artifact@v2
+      with:
+        name: build-artifact
+
+    - name: Run the executable
+      run: wine ./link_to_image.exe
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v2
+      with:
+        name: run-artifact
+        path: 'ezkernelnew.bin'

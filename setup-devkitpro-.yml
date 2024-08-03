@@ -1,0 +1,21 @@
+name: Setup DevKitPro
+
+on: [push]
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Set up DevKitPro
+      run: |
+        sudo dkp-pacman -Sy
+        sudo dkp-pacman -S devkitARM devkitPPC libgba
+
+    - name: Export environment variables
+      run: |
+        echo "DEVKITPRO=/opt/devkitpro" >> $GITHUB_ENV
+        echo "DEVKITARM=/opt/devkitpro/devkitARM" >> $GITHUB_ENV

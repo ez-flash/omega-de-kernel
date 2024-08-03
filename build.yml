@@ -1,0 +1,23 @@
+name: Build with Make
+
+on: workflow_run:
+  workflows: ["Setup DevKitPro"]
+  types:
+    - completed
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Build with Make
+      run: make
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v2
+      with:
+        name: build-artifact
+        path: path_to_build_artifact
