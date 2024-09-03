@@ -110,7 +110,7 @@
 #define assress_max 65
 
 #define LX9_FW_built_in_ver 5
-#define LX16_FW_built_in_ver 6
+#define LX16_FW_built_in_ver 7
 
 #define LX9_newomega_top_bin_address (void*)0x08195000
 #define LX9_newomega_top_bin_size  0x535bc////0x536d0//0x534A8//
@@ -118,6 +118,6 @@
 #define LX9_FW_crc32 0x7E33C4FB //0x76352215:fw4
 
 #define LX16_newomega_top_bin_address (void*)0x08200000
-#define LX16_newomega_top_bin_size  0x719DC
+#define LX16_newomega_top_bin_size  0x716A0
 #define LX16_wirte_address 0x100000
-#define LX16_FW_crc32 0x98F5A817
+#define LX16_FW_crc32 0x709EF09C

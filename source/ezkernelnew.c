@@ -24,7 +24,7 @@
 #include "helpwindow.h"
 
 
-#include "goomba.h"
+#include "jagoombacolor.h"
 #include "pocketnes.h"
 
 
@@ -1453,9 +1453,9 @@ u32 IWRAM_CODE LoadEMU2PSRAM(TCHAR *filename,u32 is_EMU)
 	{
 		case 1://gbc
 		case 2://gb	
-			dmaCopy((void*)goomba_gba,pReadCache, goomba_gba_size);
-			dmaCopy((void*)pReadCache,PSRAMBase_S98, goomba_gba_size);
-			rom_start_address = goomba_gba_size;
+			dmaCopy((void*)jagoombacolor_gba,pReadCache, jagoombacolor_gba_size);
+			dmaCopy((void*)pReadCache,PSRAMBase_S98, jagoombacolor_gba_size);
+			rom_start_address = jagoombacolor_gba_size;
 			break;
 		case 3://nes
 			dmaCopy((void*)pocketnes_gba,pReadCache, pocketnes_gba_size);
