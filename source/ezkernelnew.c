@@ -87,6 +87,7 @@ u16 gl_SD_R;
 u16 gl_SD_G;
 u16 gl_SD_B;
 
+static const char* RECENTLY_PLAYED_FILE = "/SAVER/Recently play.txt";
 
 //----------------------------------------
 /*u16 gl_color_selected 		= RGB(00,20,26);
@@ -100,6 +101,59 @@ u16 gl_color_NORFULL      = RGB(31,00,00);
 u16 gl_color_btn_clean    = RGB(00,00,31);
 */
 u16 SAV_info_buffer [0x200]EWRAM_BSS;
+
+static char g_find_path[sizeof(currentpath)] EWRAM_BSS;
+
+//
+static bool LoadLastPath(void)
+{
+	bool success = false;
+	FIL file = {0};
+	FRESULT res = f_open(&file, RECENTLY_PLAYED_FILE, FA_READ);
+	if (res != FR_OK) {
+		goto fail;
+	}
+
+	char temp[sizeof(currentpath)];
+	if (!f_gets(temp, sizeof(temp), &file)) {
+		goto fail;
+	}
+
+	Trim(temp);
+
+	char* dilim = strrchr(temp, '/');
+	if (!dilim) {
+		goto fail;
+	}
+
+	// remove the '/' to split folder and file name.
+	dilim[0] = '\0';
+
+	// helpers.
+	const char* folder_path = temp;
+	const char* file_name = dilim + 1;
+
+	res = f_chdir(folder_path);
+	if (res != FR_OK) {
+		goto fail;
+	}
+
+	// save the file name.
+	strcpy(currentpath, folder_path);
+	strcpy(g_find_path, file_name);
+
+	// "/rom.gba" would be stripped to "", so force back the slash
+	if (currentpath[0] == '\0') {
+		currentpath[0] = '/';
+	}
+
+	success = true;
+
+fail:
+	f_close(&file);
+
+	return success;
+}
 //******************************************************************************
 void delay(u32 R0)
 {
@@ -787,7 +841,7 @@ u32  get_count(void)
 	u32 res;
 	u32 count=0;
 	char buf[512];
-	res = f_open(&gfile,"/SAVER/Recently play.txt", FA_READ);
+	res = f_open(&gfile,RECENTLY_PLAYED_FILE, FA_READ);
 	if(res == FR_OK)//have a play file
 	{
 		f_lseek(&gfile, 0x0);
@@ -1906,6 +1960,7 @@ int main(void) {
 	u32 game_folder_total;
 	u32 file_select;
 	u32 show_offset;
+	s32 force_file_offset = -1;
 	u32 updata;
 	u32 continue_MENU;
 	PAGE_NUM page_num=SD_list;
@@ -1949,7 +2004,6 @@ int main(void) {
 
 	Check_save_flag();
 
-	f_chdir("/");
 	//TCHAR currentpath[MAX_path_len];
 	memset(currentpath,00,MAX_path_len);
 	memset(currentpath_temp,0x00,MAX_path_len);
@@ -1957,7 +2011,10 @@ int main(void) {
 	memset(p_folder_select_show_offset,0x00,100);
 	memset(p_folder_select_file_select,0x00,100);
 
-	res = f_getcwd(currentpath, sizeof currentpath / sizeof *currentpath);
+	if (!LoadLastPath()) {
+		f_chdir("/");
+		res = f_getcwd(currentpath, sizeof currentpath / sizeof *currentpath);
+	}
 
 	Read_NOR_info();
 	gl_norOffset = 0x000000;
@@ -2010,6 +2067,25 @@ refind_file:
 
 		Sort_folder(folder_total);//folder
 		Sort_file(game_total_SD);//file
+
+		// try and find offset of the file.
+		if (g_find_path[0] != '\0') {
+			for (u32 i = 0; i < game_folder_total; i++) {
+				char* name;
+				if (i < folder_total) {
+					name = pFolder[i].filename;
+				} else {
+					name = pFilename_buffer[i - folder_total].filename;
+				}
+
+				if (!strcasecmp(name, g_find_path)) {
+					force_file_offset = i;
+					break;
+				}
+			}
+
+			g_find_path[0] = '\0';
+		}
   }
   else
   {
@@ -2018,7 +2094,20 @@ refind_file:
 		game_total_NOR = GetFileListFromNor();
   }
 
-  if(folder_select){
+  // number of files displayed on the screen.
+  #define MAX_FILES_IN_LIST 9
+
+  if (force_file_offset >= 0) {
+	if (force_file_offset > MAX_FILES_IN_LIST) {
+		file_select = MAX_FILES_IN_LIST;
+		show_offset = force_file_offset - MAX_FILES_IN_LIST;
+	} else {
+		file_select = force_file_offset;
+		show_offset = 0;
+	}
+	force_file_offset = -1;
+  }
+  else if(folder_select){
 		file_select = p_folder_select_file_select[folder_select];
 		show_offset = p_folder_select_show_offset[folder_select];
   }
