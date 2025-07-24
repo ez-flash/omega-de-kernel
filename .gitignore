@@ -1,0 +1,6 @@
+build
+*.o
+*.a
+*.elf
+*.gba
+.vscode/settings.json

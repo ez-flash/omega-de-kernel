@@ -1,0 +1,21 @@
+{
+    "configurations": [
+        {
+            "name": "gba",
+            "includePath": [
+                "${default}",
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/source",
+                "${workspaceFolder}/emusrc",
+                "${workspaceFolder}/emusrc/src",
+                "${DEVKITPRO}/libgba/include/",
+                "${DEVKITPRO}/portlibs/armv4t/include/"
+            ],
+            "defines": ["__GBA__"],
+            "cStandard": "gnu17",
+            "cppStandard": "gnu++23",
+            "compilerPath": "${DEVKITPRO}/devkitARM/bin/arm-none-eabi-gcc"
+        }
+    ],
+    "version": 4
+}
