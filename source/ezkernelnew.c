@@ -87,6 +87,7 @@ u16 gl_SD_R;
 u16 gl_SD_G;
 u16 gl_SD_B;
 
+static const char* RECENTLY_PLAYED_FILE = "/SAVER/Recently play.txt";
 
 //----------------------------------------
 /*u16 gl_color_selected 		= RGB(00,20,26);
@@ -100,6 +101,59 @@ u16 gl_color_NORFULL      = RGB(31,00,00);
 u16 gl_color_btn_clean    = RGB(00,00,31);
 */
 u16 SAV_info_buffer [0x200]EWRAM_BSS;
+
+static char g_find_path[sizeof(currentpath)] EWRAM_BSS;
+
+//
+static bool LoadLastPath(void)
+{
+	bool success = false;
+	FIL file = {0};
+	FRESULT res = f_open(&file, RECENTLY_PLAYED_FILE, FA_READ);
+	if (res != FR_OK) {
+		goto fail;
+	}
+
+	char temp[sizeof(currentpath)];
+	if (!f_gets(temp, sizeof(temp), &file)) {
+		goto fail;
+	}
+
+	Trim(temp);
+
+	char* dilim = strrchr(temp, '/');
+	if (!dilim) {
+		goto fail;
+	}
+
+	// remove the '/' to split folder and file name.
+	dilim[0] = '\0';
+
+	// helpers.
+	const char* folder_path = temp;
+	const char* file_name = dilim + 1;
+
+	res = f_chdir(folder_path);
+	if (res != FR_OK) {
+		goto fail;
+	}
+
+	// save the file name.
+	strcpy(currentpath, folder_path);
+	strcpy(g_find_path, file_name);
+
+	// "/rom.gba" would be stripped to "", so force back the slash
+	if (currentpath[0] == '\0') {
+		currentpath[0] = '/';
+	}
+
+	success = true;
+
+fail:
+	f_close(&file);
+
+	return success;
+}
 //******************************************************************************
 void delay(u32 R0)
 {
@@ -182,9 +236,9 @@ void Show_ICON_filename_SD(u32 show_offset,u32 file_select,u32 haveThumbnail)
 		else{
 			char_num = 32;
 		}
-		
+
 		if(line== file_select)
-		{			
+		{
 			Clear(17,20 + file_select*14,(char_num == 17)?(17*6+1):(240-17),13,gl_color_selectBG_sd,1);
 		}
 
@@ -198,7 +252,7 @@ void Show_ICON_filename_SD(u32 show_offset,u32 file_select,u32 haveThumbnail)
 			1);
 
 		DrawHZText12(pFolder[show_offset+line].filename, char_num, 1+16, y_offset + line*14, name_color,1);
-					
+
 		if((haveThumbnail==1)&&(line>3))
 		{}
 		else
@@ -215,7 +269,7 @@ void Show_ICON_filename_SD(u32 show_offset,u32 file_select,u32 haveThumbnail)
 	TCHAR *pfilename;
 	if(show_offset >= folder_total)
 		offset = show_offset - folder_total;
-									
+
 	for(line=need_show_folder;line < need_show_folder+need_show_game;line++)
 	{
 		if(haveThumbnail)
@@ -230,7 +284,7 @@ void Show_ICON_filename_SD(u32 show_offset,u32 file_select,u32 haveThumbnail)
 		else{
 			char_num = 32;
 		}
-		
+
 		if(line== file_select)
 		{
 			Clear(17,20 + file_select*14,(char_num == 17)?(17*6+1):(240-17),13,gl_color_selectBG_sd,1);
@@ -239,11 +293,11 @@ void Show_ICON_filename_SD(u32 show_offset,u32 file_select,u32 haveThumbnail)
 		u32 showy = y_offset +(line)*14;
 		pfilename = pFilename_buffer[offset+line-need_show_folder].filename;
 		strlen8 = strlen(pfilename) ;
-		u16* icon; 
+		u16* icon;
 		if(!strcasecmp(&(pfilename[strlen8-3]), "gba"))
 		{
 			icon = (u16*)(gImage_icon_gba/*gImage_icons+1*16*14*2*/);
-		}	
+		}
 		else if(!strcasecmp(&(pfilename[strlen8-3]), "gbc"))
 		{
 			icon = (u16*)(gImage_icon_GB);
@@ -256,10 +310,10 @@ void Show_ICON_filename_SD(u32 show_offset,u32 file_select,u32 haveThumbnail)
 		{
 			icon = (u16*)(gImage_icon_FC);
 		}
-		else 
+		else
 		{
 			icon = (u16*)(gImage_icon_other/*gImage_icons+2*16*14*2*/);
-		}	
+		}
 		DrawPic(icon,
 			0,
 			showy,
@@ -273,7 +327,7 @@ void Show_ICON_filename_SD(u32 show_offset,u32 file_select,u32 haveThumbnail)
 		if((haveThumbnail==1)&&(line>3))
 		{}
 		else
-		{		
+		{
 			char msg[20];
 			Get_file_size(offset+line-need_show_folder,msg);
 			DrawHZText12(msg,0,208,showy, name_color,1);
@@ -286,13 +340,13 @@ void IWRAM_CODE Refresh_filename(u32 show_offset,u32 file_select,u32 updown,u32 
 	u32 need_show_game;
 	u32 need_show_folder;
 	char msg[20];
-	u32 y_offset= 20;	
-		
+	u32 y_offset= 20;
+
 	u32 char_num1;
 	u32 char_num2;
 	u32 clean_len1;
 	u32 clean_len2;
-	
+
 	if(show_offset >= folder_total)
 	{
 		need_show_folder = 0;
@@ -343,7 +397,7 @@ void IWRAM_CODE Refresh_filename(u32 show_offset,u32 file_select,u32 updown,u32 
 					clean_len1 = 240-17;
 					clean_len2 = 240-17;
 				}
-				break;	
+				break;
 			case 4:
 				if(updown ==2){
 					char_num1 = 32;
@@ -356,7 +410,7 @@ void IWRAM_CODE Refresh_filename(u32 show_offset,u32 file_select,u32 updown,u32 
 					char_num2 = 17;
 					clean_len1 = 17*6+1;
 					clean_len2 = 17*6+1;
-				}	
+				}
 				break;
 			case 5:
 				if(updown ==2){
@@ -370,13 +424,13 @@ void IWRAM_CODE Refresh_filename(u32 show_offset,u32 file_select,u32 updown,u32 
 					char_num2 = 17;
 					clean_len1 = 17*6+1;
 					clean_len2 = 17*6+1;
-				}	
+				}
 				break;
 			default:
 				char_num1 = 17;
 				char_num2 = 17;
 				clean_len1 = 17*6+1;
-				clean_len2 = 17*6+1;	
+				clean_len2 = 17*6+1;
 				break;
 		}
 	}
@@ -386,7 +440,7 @@ void IWRAM_CODE Refresh_filename(u32 show_offset,u32 file_select,u32 updown,u32 
 		clean_len1 = 240-17;
 		clean_len2 = 240-17;
 	}
-		
+
 
 	name_color1 = gl_color_text;
 	//name_color2 = 0x7FFF;
@@ -404,23 +458,23 @@ void IWRAM_CODE Refresh_filename(u32 show_offset,u32 file_select,u32 updown,u32 
 		xx1 = file_select;
 		xx2 = file_select+1;
 		showy1 = y_offset +(file_select)*14;
-		showy2 = y_offset +(file_select+1)*14;	
-		Clear(17,20 + xx1*14,clean_len1,13,gl_color_selectBG_sd,1);	
-		ClearWithBG((u16*)gImage_SD,17, 20 + xx2*14,clean_len2, 13, 1);	
+		showy2 = y_offset +(file_select+1)*14;
+		Clear(17,20 + xx1*14,clean_len1,13,gl_color_selectBG_sd,1);
+		ClearWithBG((u16*)gImage_SD,17, 20 + xx2*14,clean_len2, 13, 1);
 	}
 
 	if((file_select == (need_show_folder-1)) && (updown ==3))
 	{
 		DrawHZText12(pFolder[show_offset+xx1].filename, char_num1, 1+16, showy1, name_color1,1);
 		DrawHZText12(pFilename_buffer[0].filename, char_num2, 1+16, showy2, name_color1,1);
-		
+
 		if(char_num1==32){
 			sprintf(msg,"%s","DIR");
 			DrawHZText12(msg,0,221,showy1, name_color1,1);
 		}
 		if(char_num2==32){
 			Get_file_size(0,msg);
-			DrawHZText12(msg,0,208,showy2, name_color1,1);			
+			DrawHZText12(msg,0,208,showy2, name_color1,1);
 		}
 	}
 	else if(file_select < need_show_folder)
@@ -430,7 +484,7 @@ void IWRAM_CODE Refresh_filename(u32 show_offset,u32 file_select,u32 updown,u32 
 
 		sprintf(msg,"%s","DIR");
 		if(char_num1==32){
-			DrawHZText12(msg,0,221,showy1, name_color1,1);			
+			DrawHZText12(msg,0,221,showy1, name_color1,1);
 		}
 		if(char_num2==32){
 			DrawHZText12(msg,0,221,showy2, name_color1,1);
@@ -440,10 +494,10 @@ void IWRAM_CODE Refresh_filename(u32 show_offset,u32 file_select,u32 updown,u32 
 	{
 		DrawHZText12(pFolder[show_offset+xx1].filename,char_num1, 1+16, showy1, name_color1,1);
 		DrawHZText12(pFilename_buffer[0].filename, char_num2, 1+16, showy2, name_color1,1);
-		
+
 		if(char_num1==32){
-			sprintf(msg,"%s","DIR");			
-			DrawHZText12(msg,0,221,showy1, name_color1,1);			
+			sprintf(msg,"%s","DIR");
+			DrawHZText12(msg,0,221,showy1, name_color1,1);
 		}
 		if(char_num2==32){
 			Get_file_size(0,msg);
@@ -457,7 +511,7 @@ void IWRAM_CODE Refresh_filename(u32 show_offset,u32 file_select,u32 updown,u32 
 
 		if(char_num1==32){
 			Get_file_size(offset+xx1-need_show_folder,msg);
-			DrawHZText12(msg,0,208,showy1, name_color1,1);		
+			DrawHZText12(msg,0,208,showy1, name_color1,1);
 		}
 		if(char_num2==32){
 			Get_file_size(offset+xx2-need_show_folder,msg);
@@ -471,10 +525,10 @@ void Show_ICON_filename_NOR(u32 show_offset,u32 file_select)
 	int need_show;
 	int line;
 	char msg[20];
-	u16 name_color = gl_color_text;	
-	u32 y_offset= 20;	
+	u16 name_color = gl_color_text;
+	u32 y_offset= 20;
 	u32 char_num=32;
-	
+
 	if(game_total_NOR<10)
 		need_show = game_total_NOR;
 	else
@@ -484,7 +538,7 @@ void Show_ICON_filename_NOR(u32 show_offset,u32 file_select)
 	{
 		if(line== file_select){
 			Clear(17,20 + file_select*14,240-17,13,gl_color_selectBG_nor,1);
-		}		
+		}
 
 		DrawPic((u16*)gImage_icon_nor/*(gImage_icons+2*16*14*2)*/,
 			0,
@@ -495,7 +549,7 @@ void Show_ICON_filename_NOR(u32 show_offset,u32 file_select)
 			gl_color_text,
 			1);
 
-		DrawHZText12(pNorFS[show_offset+line].filename, char_num, 1+16, y_offset + line*14, name_color,1);	
+		DrawHZText12(pNorFS[show_offset+line].filename, char_num, 1+16, y_offset + line*14, name_color,1);
 		sprintf(msg,"%4luM",pNorFS[show_offset+line].filesize >>20 );
 		DrawHZText12(msg,0,208,y_offset + line*14, name_color,1);
 
@@ -513,10 +567,10 @@ void Refresh_filename_NOR(u32 show_offset,u32 file_select,u32 updown)
 	u32 y_offset= 20;
 	u32 char_num;
 	u32 clean_len;
-	
+
 	char_num = 32;
 	clean_len = 240-17;
-	
+
 	name_color1 = gl_color_text;
 
 	if(updown ==2) //down
@@ -568,15 +622,15 @@ void Filename_loop(u32 shift,u32 show_offset,u32 file_select,u32 haveThumbnail)
 {
 	u32 need_show_folder;
 	//u32 line;
-	u32 char_num;	
-	u32 y_offset= 20;	
+	u32 char_num;
+	u32 y_offset= 20;
 	int namelen;
 	static u32 orgtt = 123455;
 	u32 timeout = 20;
-	//u8 dwName=0;	
+	//u8 dwName=0;
 	char msg[128];
 	char temp_filename[100];
-	
+
 	if(shift > timeout)
 	{
 		if(show_offset >= folder_total)
@@ -603,7 +657,7 @@ void Filename_loop(u32 shift,u32 show_offset,u32 file_select,u32 haveThumbnail)
 			char_num = 33;
 		}
 
-		
+
 		u32 offset=0;
 		if(show_offset >= folder_total)
 			offset = show_offset - folder_total;
@@ -611,24 +665,24 @@ void Filename_loop(u32 shift,u32 show_offset,u32 file_select,u32 haveThumbnail)
 		if(file_select < need_show_folder)
 		{
 			strncpy(temp_filename,pFolder[show_offset+file_select].filename , 100 );
-		
+
 		}
 		else
 		{
-			strncpy(temp_filename,pFilename_buffer[offset+file_select-need_show_folder].filename , 100 );		
+			strncpy(temp_filename,pFilename_buffer[offset+file_select-need_show_folder].filename , 100 );
 		}
-		
+
 		namelen = strlen(temp_filename);
-		if(namelen >(char_num-1) ) 
+		if(namelen >(char_num-1) )
 		{
 			u32  tt = ((shift-timeout)/8)% (namelen);
 			if(orgtt!= tt )
-			{	
+			{
 				orgtt = tt ;
 				sprintf(msg,"%s   ",temp_filename + tt);
 				strncpy(msg+strlen(msg) ,temp_filename , 128 - strlen(msg) );
 				if(temp_filename[tt] > 0x80)
-				{						
+				{
 					if(dwName)
 					{
 						msg[0] = 0x20;
@@ -639,12 +693,12 @@ void Filename_loop(u32 shift,u32 show_offset,u32 file_select,u32 haveThumbnail)
 				}
 				else
 					dwName = 0;
-					
-				Clear(17,20 + file_select*14,(char_num)*6,13,gl_color_selectBG_sd,1);	
+
+				Clear(17,20 + file_select*14,(char_num)*6,13,gl_color_selectBG_sd,1);
 				DrawHZText12(msg, char_num-1, 1+16, y_offset + file_select*14, gl_color_text,1);
-			}	
+			}
 		}
-	}		
+	}
 }
 //---------------------------------------------------------------------------------
 void Show_MENU_btn()
@@ -662,7 +716,7 @@ void Show_MENU(u32 menu_select,PAGE_NUM page,u32 havecht,u32 Save_num,u32 is_men
 	u32 y_offset= 30;
 	u16 name_color;
 	char msg[30];
-	
+
 	u32 linemax;// = (page==NOR_list)?3:(5+havecht);
 	if(page==NOR_list){
 		if(firstgame){
@@ -675,24 +729,24 @@ void Show_MENU(u32 menu_select,PAGE_NUM page,u32 havecht,u32 Save_num,u32 is_men
 	else{
 		linemax = 5 + havecht;
 	}
-		
-	
-	
+
+
+
 	if(is_menu){
 		linemax = 1;
 	}
-		
+
 	for(line=0;line<linemax;line++)
-	{		
+	{
 		if(line== menu_select){
 			name_color = gl_color_selected;
 		}
 		else if(line == 1){
 				if((gl_reset_on |  gl_rts_on| gl_sleep_on| gl_cheat_on) == 0)	{
 					name_color = gl_color_MENU_btn;
-				}	
+				}
 				else {
-					name_color = gl_color_text;	
+					name_color = gl_color_text;
 				}
 		}
 		else if(line == 5){
@@ -706,8 +760,8 @@ void Show_MENU(u32 menu_select,PAGE_NUM page,u32 havecht,u32 Save_num,u32 is_men
 			}
 			else{
 				name_color = gl_color_text;
-			}			
-		}				
+			}
+		}
 		else{
 			name_color = gl_color_text;
 		}
@@ -723,9 +777,9 @@ void Show_MENU(u32 menu_select,PAGE_NUM page,u32 havecht,u32 Save_num,u32 is_men
 			}
 			else{
 				DrawHZText12(gl_rom_menu[line], 32, 60, y_offset + line*14, name_color,1);
-							
+
 				if(line == 4)//save tpye
-				{				
+				{
 					switch(Save_num)
 					{
 						case 1:sprintf(msg,"%s","<  SRAM  >");//0x11
@@ -733,19 +787,19 @@ void Show_MENU(u32 menu_select,PAGE_NUM page,u32 havecht,u32 Save_num,u32 is_men
 						case 2:sprintf(msg,"%s","<EEPROM8K>");//0x22
 							break;
 						case 3:sprintf(msg,"%s","<EEPROM512>");//0x23
-							break;				
+							break;
 						case 4:sprintf(msg,"%s","<FLASH64 >");//0x32
 							break;
 						case 5:sprintf(msg,"%s","<FLASH128>");//0x31
-							break;	
-						case 0:	
-						default:	
-							sprintf(msg,"%s",     "<  AUTO  >");	
-							break;			
-						
+							break;
+						case 0:
+						default:
+							sprintf(msg,"%s",     "<  AUTO  >");
+							break;
+
 					}
 					//ClearWithBG((u16*)gImage_MENU -64,60+60, y_offset + line*14, 10*6, 13, 1);
-					DrawHZText12(msg, 32, 60+54, y_offset + line*14, name_color,1);					
+					DrawHZText12(msg, 32, 60+54, y_offset + line*14, name_color,1);
 				}
 			}
 		}
@@ -754,17 +808,17 @@ void Show_MENU(u32 menu_select,PAGE_NUM page,u32 havecht,u32 Save_num,u32 is_men
 //------------------------------------------------------------------
 void Show_game_name(u32 total,u32 Select)
 {
-	u32 need_show;	
+	u32 need_show;
 	u32 line;
-	
+
 	char msg[256];
-	
+
 	u32 X_offset=1;
 	u32 Y_offset=20;
 	u32 line_x = 14;
 	//u32 str_len;
 	u16 name_color;
-	
+
 	if(total<10)
 		need_show = total;
 	else
@@ -775,30 +829,30 @@ void Show_game_name(u32 total,u32 Select)
 			name_color = gl_color_selected;
 		else
 			name_color = gl_color_text;
-			
-		sprintf(msg,"%s",p_recently_play[line]);				
-		DrawHZText12(msg,39,X_offset,Y_offset+line*line_x, name_color,1);					
-			
-	}		
+
+		sprintf(msg,"%s",p_recently_play[line]);
+		DrawHZText12(msg,39,X_offset,Y_offset+line*line_x, name_color,1);
+
+	}
 }
 //---------------------------------------------------------------------------------
 u32  get_count(void)
 {
 	u32 res;
 	u32 count=0;
-	char buf[512];	
-	res = f_open(&gfile,"/SAVER/Recently play.txt", FA_READ);	
+	char buf[512];
+	res = f_open(&gfile,RECENTLY_PLAYED_FILE, FA_READ);
 	if(res == FR_OK)//have a play file
 	{
 		f_lseek(&gfile, 0x0);
 		memset(buf,0x00,512);
 		while(f_gets(buf, 512, &gfile) != NULL)
-		{		
+		{
 			//DrawHZText12(buf, 32, 1+16, showy, name_color,1);
 			Trim(buf);
 			if(buf[0] != '/') break;
 			memset(p_recently_play[count],0x00,512);
-			dmaCopy(buf,&(p_recently_play[count]), 512);		
+			dmaCopy(buf,&(p_recently_play[count]), 512);
 			memset(buf,0x00,512);
 			count++;
 			if(count==10)break;
@@ -816,64 +870,64 @@ u32 show_recently_play(void)
 	u32 re_show = 1;
 	u32 return_val=0xBB;
 	//u32 firsttime = 1;
-	
+
 	DrawPic((u16*)gImage_RECENTLY, 0, 0, 240, 160, 0, 0, 1);
 	DrawHZText12(gl_recently_play,0,(240-strlen(gl_recently_play)*6)/2,4, gl_color_text,1);//TITLE
-	
-	all_count = get_count();	
+
+	all_count = get_count();
 	if(all_count)
-	{				
-		setRepeat(15,1);		
+	{
+		setRepeat(15,1);
 		while(1)
 		{
 			VBlankIntrWait();
-			VBlankIntrWait();	
-					
+			VBlankIntrWait();
+
 			if(re_show)
 			{
 				Show_game_name(all_count,Select);
 				re_show = 0;
-			}						
+			}
 			scanKeys();
-			u16 keysrepeat = keysDownRepeat();	
+			u16 keysrepeat = keysDownRepeat();
 			u16 keysup = keysUp();
 			if (keysrepeat & KEY_DOWN) {
 				if(Select < (all_count-1)){
 					Select++;
 					re_show=1;
-				}		
+				}
 			}
-			else if(keysrepeat & KEY_UP){					
+			else if(keysrepeat & KEY_UP){
 				if(Select){
 					Select--;
 					re_show=1;
 				}
 			}
-			else if(keysup & KEY_B){	
-				return_val = 0xBB;				
+			else if(keysup & KEY_B){
+				return_val = 0xBB;
 				break;
 			}
-			else if(keysup & KEY_A){					
-	 			return_val = Select;	 				
+			else if(keysup & KEY_A){
+	 			return_val = Select;
 	 			break;
-			}				
+			}
 		}
 	}
 	else{
-		
-		DrawHZText12(gl_no_game_played,0,1,20, gl_color_text,1);		
+
+		DrawHZText12(gl_no_game_played,0,1,20, gl_color_text,1);
 		while(1)
 		{
 			VBlankIntrWait();
-			VBlankIntrWait();	
+			VBlankIntrWait();
 			scanKeys();
 			u16 keysup = keysUp();
-			if(keysup & KEY_B){	
-				return_val = 0xBB;				
+			if(keysup & KEY_B){
+				return_val = 0xBB;
 				break;
 			}
 		}
-		
+
 	}
 	return return_val;
 }
@@ -884,19 +938,19 @@ void Make_recently_play_file(TCHAR* path,TCHAR* gamefilename)
 	u32 i;
 	u32  count;
 	int get=1;
-	char buf[512];	
-	
+	char buf[512];
+
 	//res=f_chdir("/SAVER");
 	//is in SAVER
 	count = get_count();
-		
+
 	memset(buf,0x00,512);
-	if(strcmp(path,"/") ==0){		
-		sprintf(buf,"%s%s",path,gamefilename);	
+	if(strcmp(path,"/") ==0){
+		sprintf(buf,"%s%s",path,gamefilename);
 	}
 	else{
-		sprintf(buf,"%s/%s",path,gamefilename);	
-	}	
+		sprintf(buf,"%s/%s",path,gamefilename);
+	}
 
 	for(i=0;i<count;i++)
 	{
@@ -906,33 +960,33 @@ void Make_recently_play_file(TCHAR* path,TCHAR* gamefilename)
 			u32 j;
 			for(j=i;j>0;j--){
 				memset(p_recently_play[j],0x00,512);
-				dmaCopy(&(p_recently_play[j-1]),&(p_recently_play[j]), 512);					
+				dmaCopy(&(p_recently_play[j-1]),&(p_recently_play[j]), 512);
 			}
-			break;			
+			break;
 		}
-	}	
-	
+	}
+
 	if(get != 0){
 		if(count==10){
 			for(i=9;i>0;i--){
 				memset(p_recently_play[i],0x00,512);
-				dmaCopy(&(p_recently_play[i-1]),&(p_recently_play[i]), 512);	
-			}		
+				dmaCopy(&(p_recently_play[i-1]),&(p_recently_play[i]), 512);
+			}
 		}
 		else if(count){
 			for(i=count;i>0;i--){
 				memset(p_recently_play[i],0x00,512);
-				dmaCopy(&(p_recently_play[i-1]),&(p_recently_play[i]), 512);	
+				dmaCopy(&(p_recently_play[i-1]),&(p_recently_play[i]), 512);
 			}
-		}	
+		}
 	}
 	dmaCopy(buf,&(p_recently_play[0]), 512);	//write first one
-		
+
 	res = f_open(&gfile,"Recently play.txt", FA_WRITE | FA_OPEN_ALWAYS);
 	if(res == FR_OK)
-	{	
+	{
 		f_lseek(&gfile, 0x0000);
-		for(i=0;i<count+1;i++){			
+		for(i=0;i<count+1;i++){
 			res=f_printf(&gfile, "%s\n", p_recently_play[i]);
 		}
 		f_close(&gfile);
@@ -988,7 +1042,7 @@ u32 Check_game_RTS_FAT(TCHAR *filename,u32 game_save_rts)
 	else
 	{
 		FAT_table_P = FAT_table_buffer+ FAT_table_RTS_offset/4;
-	}	
+	}
 
 
 	*FAT_table_P = 0x00000000;
@@ -1034,7 +1088,7 @@ u32 IWRAM_CODE Loadsavefile(TCHAR *filename)
 				filesize = 128*1024;
 
 			SetRampage(0x0);
-			
+
 			if(filesize>64*1024)
 			{
 		      f_read(&file, pReadCache, 64*1024, (UINT *)&ret);
@@ -1071,7 +1125,7 @@ u32 IWRAM_CODE Save_savefile(TCHAR *filename,u32 savesize)
 			unsigned int written;
 			//memset(pReadCache,0xFF,0x200*4);
 			SetRampage(0x0);
-			
+
 			if(savesize < 0x800)
 			{
 				ReadSram(SRAMSaver,pReadCache,savesize);
@@ -1079,14 +1133,14 @@ u32 IWRAM_CODE Save_savefile(TCHAR *filename,u32 savesize)
 				{
 		      f_write(&file, pReadCache+0x200*i, 0x200, &written);
 		      if(written != 0x200) break;
-		    }	
+		    }
 			}
 			else
 			{
 				if(savesize>64*1024)
 				{
 					ReadSram(SRAMSaver, pReadCache , 64*1024 );
-					
+
 					for(i=0;i<64*1024/0x800 ;i++)
 					{
 			      f_write(&file, pReadCache+0x800*i, 0x200*4, &written);
@@ -1094,7 +1148,7 @@ u32 IWRAM_CODE Save_savefile(TCHAR *filename,u32 savesize)
 			    }
 			    SetRampage(0x10);
 					ReadSram(SRAMSaver, pReadCache , 64*1024 );
-					
+
 					for(i=0;i<64*1024/0x800 ;i++)
 					{
 			      f_write(&file, pReadCache+0x800*i, 0x200*4, &written);
@@ -1111,7 +1165,7 @@ u32 IWRAM_CODE Save_savefile(TCHAR *filename,u32 savesize)
 			    }
 				}
 		  }
-	    
+
 	    f_close(&file);
 
 	     return 1;
@@ -1141,7 +1195,7 @@ u32 IWRAM_CODE LoadRTSfile(TCHAR *filename)
 			{
 				SetRampage(page);
 				f_read(&file, pReadCache, 64*1024, (UINT *)&ret);
-				WriteSram(SRAMSaver, pReadCache , 64*1024 );	
+				WriteSram(SRAMSaver, pReadCache , 64*1024 );
 			}
 	    f_close(&file);
 	    SetRampage(0x0);
@@ -1171,7 +1225,7 @@ u32 SavefileWrite(TCHAR *filename,u32 savesize)
 				{
 		      f_write(&file, pReadCache, 0x200, &written);
 		      if(written != 0x200) break;
-		    }	
+		    }
 			}
 			else
 			{
@@ -1181,7 +1235,7 @@ u32 SavefileWrite(TCHAR *filename,u32 savesize)
 		      if(written != 0x200*4) break;
 		    }
 		  }
-	    
+
 	    f_close(&file);
 
 	     return 1;
@@ -1200,9 +1254,9 @@ u8 Check_saveMODE(u8 gamecode[])
 	for(i=0;i<3000;i++)
 	{
 		if( memcmp( ((SAVE_MODE_*)pReadCache)[i].gamecode,"FFFF",4) ==0)
-		{			
+		{
 			break;
-		}	
+		}
 		else if(  memcmp( ((SAVE_MODE_*)pReadCache)[i].gamecode,gamecode,4) ==0 )
 		{
 			savemode = ((SAVE_MODE_*)pReadCache)[i].savemode;
@@ -1225,18 +1279,18 @@ u8 Get_saveMODE(u8 Save_num,u32 gamefilesize)
 		{
 			case 0x1:saveMODE=0x11;break;//SRAM
 			case 0x2:
-				if(gamefilesize> 0x1200000){//some eeprom modify rom 
+				if(gamefilesize> 0x1200000){//some eeprom modify rom
 					saveMODE=0x23;//32M //EEPROM8K
 				}
-				else{ 
+				else{
 					saveMODE=0x22;//EEPROM8K
 				}
 				break;
 			case 0x3:saveMODE=0x21;break;//EEPROM512
 			case 0x4:saveMODE=0x32;break;//FLASH64
 			case 0x5:saveMODE=0x31;break;//FLASH128
-			case 0xf:saveMODE=0x10;break;	
-			default:saveMODE=0x00;break;					
+			case 0xf:saveMODE=0x10;break;
+			default:saveMODE=0x00;break;
 		}
 	}
 	return saveMODE;
@@ -1249,31 +1303,31 @@ u32 IWRAM_CODE Loadfile2PSRAM(TCHAR *filename)
 	u32 res;
 	u32 blocknum;
 	char msg[20];
-	
+
 	u32 Address;
 	vu16 page=0;
 	SetPSRampage(page);
-	
+
 	res = f_open(&gfile, filename, FA_READ);
 	if(res == FR_OK)
 	{
-		filesize = f_size(&gfile);		
-		Clear(60,160-15,120,15,gl_color_cheat_black,1);	
-		DrawHZText12(gl_writing,0,70,160-15,gl_color_text,1);	
+		filesize = f_size(&gfile);
+		Clear(60,160-15,120,15,gl_color_cheat_black,1);
+		DrawHZText12(gl_writing,0,70,160-15,gl_color_text,1);
 
 		f_lseek(&gfile, 0x0000);
 		for(blocknum=0x0000;blocknum<filesize;blocknum+=0x20000)
-		{		
+		{
 			sprintf(msg,"%luMb/%luMb",(blocknum)/0x20000,filesize/0x20000);
 			Clear(70+54,160-15,110,15,gl_color_cheat_black,1);
 			DrawHZText12(msg,0,70+54,160-15,gl_color_text,1);
 			f_read(&gfile, pReadCache, 0x20000, &ret);//pReadCache max 0x20000 Byte
-			
-			if((gl_reset_on==1) || (gl_rts_on==1) || (gl_sleep_on==1) || (gl_cheat_on==1))		    
+
+			if((gl_reset_on==1) || (gl_rts_on==1) || (gl_sleep_on==1) || (gl_cheat_on==1))
 			{
 				PatchInternal((u32*)pReadCache,0x20000,blocknum);
 			}
-						
+
 			Address=blocknum;
 			while(Address>=0x800000)
 			{
@@ -1292,8 +1346,8 @@ u32 IWRAM_CODE Loadfile2PSRAM(TCHAR *filename)
 	else
 	{
 		return 1;
-	}	
-	
+	}
+
 }
 //---------------------------------------------------------------------------------
 void CheckLanguage(void)
@@ -1304,12 +1358,12 @@ void CheckLanguage(void)
 	{
 		gl_select_lang = 0xE1E1;
 	}
-	
+
 	if(gl_select_lang == 0xE1E1)//english
 	{
 		LoadEnglish();
 	}
-	else//ÖÐÎÄ
+	else//ï¿½ï¿½ï¿½ï¿½
 	{
 		LoadChinese();
 	}
@@ -1336,73 +1390,73 @@ void CheckSwitch(void)
 	if( (gl_cheat_on != 0x0) && (gl_cheat_on != 0x1))
 	{
 		gl_cheat_on = 0x0;
-	}	
-	
+	}
+
 	gl_engine_sel = Read_SET_info(assress_engine_sel);
 	if( (gl_engine_sel != 0x0) && (gl_engine_sel != 0x1))
 	{
 		gl_engine_sel = 0x1;
 	}
-	
+
 	gl_show_Thumbnail = Read_SET_info(assress_show_Thumbnail);
 	if( (gl_show_Thumbnail != 0x0) && (gl_show_Thumbnail != 0x1))
 	{
 		gl_show_Thumbnail = 0x0;
 	}
-	
+
 	gl_ingame_RTC_open_status = Read_SET_info(assress_ingame_RTC_open_status);
 	if( (gl_ingame_RTC_open_status != 0x0) && (gl_ingame_RTC_open_status != 0x1))
 	{
 		gl_ingame_RTC_open_status = 0x1;
 	}
-	
+
 	gl_auto_save_sel = Read_SET_info(assress_auto_save_sel);
 	if( (gl_auto_save_sel != 0x0) && (gl_auto_save_sel != 0x1))
 	{
 		gl_auto_save_sel = 0x0;
-	}	
-	
+	}
+
 	gl_ModeB_init = Read_SET_info(assress_ModeB_INIT);
 	if( (gl_ModeB_init != 0x0) && (gl_ModeB_init != 0x1)  && (gl_ModeB_init != 0x2))
 	{
 		gl_ModeB_init = 0x2;
 	}
-		
+
 	gl_led_open_sel = Read_SET_info(assress_led_open_sel);
 	if( (gl_led_open_sel != 0x0) && (gl_led_open_sel != 0x1))
 	{
 		gl_led_open_sel = 0x1;
-	}	
+	}
 	gl_Breathing_R = Read_SET_info(assress_Breathing_R);
 	if( (gl_Breathing_R != 0x0) && (gl_Breathing_R != 0x1))
 	{
 		gl_Breathing_R = 0x1;
-	}		
+	}
 	gl_Breathing_G = Read_SET_info(assress_Breathing_G);
 	if( (gl_Breathing_G != 0x0) && (gl_Breathing_G != 0x1))
 	{
 		gl_Breathing_G = 0x1;
-	}	
+	}
 	gl_Breathing_B = Read_SET_info(assress_Breathing_B);
 	if( (gl_Breathing_B != 0x0) && (gl_Breathing_B != 0x1))
 	{
 		gl_Breathing_B = 0x1;
-	}	
+	}
 	gl_SD_R = Read_SET_info(assress_SD_R);
 	if( (gl_SD_R != 0x0) && (gl_SD_R != 0x1))
 	{
 		gl_SD_R = 0x0;
-	}		
+	}
 	gl_SD_G = Read_SET_info(assress_SD_G);
 	if( (gl_SD_G != 0x0) && (gl_SD_G != 0x1))
 	{
 		gl_SD_G = 0x0;
-	}	
+	}
 	gl_SD_B = Read_SET_info(assress_SD_B);
 	if( (gl_SD_B != 0x0) && (gl_SD_B != 0x1))
 	{
 		gl_SD_B = 0x0;
-	}	
+	}
 
 	u16 led_status = (gl_led_open_sel<<7) | (gl_Breathing_R<<5) | (gl_Breathing_G<<4) | (gl_Breathing_B<<3) | (gl_SD_R<<2) | (gl_SD_G<<1) | (gl_SD_B) ;
 	Set_LED_control(led_status);
@@ -1417,21 +1471,21 @@ void ShowTime(u32 page_num ,u32 page_mode)
 	rtc_gettime(datetime);
 	rtc_disenable();
 	delay(5);
-	
+
 	if(page_mode==0x1)
-		ClearWithBG((u16*)gImage_RECENTLY,80, 3, 80, 13, 1);	
+		ClearWithBG((u16*)gImage_RECENTLY,80, 3, 80, 13, 1);
 	else if(page_num==SD_list)
 		ClearWithBG((u16*)gImage_SD,120, 3, 50, 13, 1);
 	else if (page_num==NOR_list)
 		ClearWithBG((u16*)gImage_NOR,120, 3, 50, 13, 1);
-	 
+
 	u8 HH = UNBCD(datetime[0]&0x3F);
 	u8 MM = UNBCD(datetime[1]&0x7F);
 	u8 SS = UNBCD(datetime[2]&0x7F);
 	if(HH >23)HH=0;
 	if(MM >59)MM=0;
 	if(SS >59)SS=0;
-	
+
 	sprintf(msgtime,"%02u:%02u:%02u",HH,MM,SS);
 	DrawHZText12(msgtime,0,120,3,gl_color_text,1);
 }
@@ -1443,16 +1497,16 @@ u32 IWRAM_CODE LoadEMU2PSRAM(TCHAR *filename,u32 is_EMU)
 	u32 res;
 	u32 blocknum;
 	char msg[20];
-	
+
 	u32 Address;
 	vu16 page=0;
 	SetPSRampage(page);
-	
+
 	u32 rom_start_address=0;
 	switch(is_EMU)
 	{
 		case 1://gbc
-		case 2://gb	
+		case 2://gb
 			dmaCopy((void*)jagoombacolor_gba,pReadCache, jagoombacolor_gba_size);
 			dmaCopy((void*)pReadCache,PSRAMBase_S98, jagoombacolor_gba_size);
 			rom_start_address = jagoombacolor_gba_size;
@@ -1463,42 +1517,42 @@ u32 IWRAM_CODE LoadEMU2PSRAM(TCHAR *filename,u32 is_EMU)
 			rom_start_address = pocketnes_gba_size+0x30;
 			break;
 		default:
-			break;	
+			break;
 	}
-	
+
 	res = f_open(&gfile, filename, FA_READ);
 	if(res == FR_OK)
 	{
-		filesize = f_size(&gfile);	
-		
+		filesize = f_size(&gfile);
+
 		if(is_EMU==3){//nes pocketnes_2013_07_01
 			*(vu32*)pReadCache = 0x45564153;
 			*((vu32*)pReadCache+1) = 0x0;
-			dmaCopy((void*)pReadCache,PSRAMBase_S98 + rom_start_address -0x30, 0x8);				
+			dmaCopy((void*)pReadCache,PSRAMBase_S98 + rom_start_address -0x30, 0x8);
 			*(vu32*)pReadCache = filesize;
 			dmaCopy((void*)pReadCache,PSRAMBase_S98 + rom_start_address -0x10, 0x4);
-			
+
 			*(vu32*)pReadCache = 0x709346c0;//usr rtc
-			dmaCopy((void*)pReadCache,PSRAMBase_S98 + 0x1EA0, 0x4);	
-			
+			dmaCopy((void*)pReadCache,PSRAMBase_S98 + 0x1EA0, 0x4);
+
 		}
 		else{
-			//use rtc, have been modify			
+			//use rtc, have been modify
 		}
 
-			
-		Clear(60,160-15,120,15,gl_color_cheat_black,1);	
-		DrawHZText12(gl_writing,0,78,160-15,gl_color_text,1);	
+
+		Clear(60,160-15,120,15,gl_color_cheat_black,1);
+		DrawHZText12(gl_writing,0,78,160-15,gl_color_text,1);
 
 		f_lseek(&gfile, 0x0000);
 		for(blocknum=0x0000;blocknum<filesize;blocknum+=0x20000)
-		{		
+		{
 			sprintf(msg,"%luMb",(blocknum)/0x20000);
 			Clear(78+54,160-15,110,15,gl_color_cheat_black,1);
 			DrawHZText12(msg,0,78+54,160-15,gl_color_text,1);
 			//f_lseek(&gfile, blocknum);
 			f_read(&gfile, pReadCache, 0x20000, &ret);//pReadCache max 0x20000 Byte
-						
+
 			Address=blocknum;
 			while(Address>=0x800000)
 			{
@@ -1507,7 +1561,7 @@ u32 IWRAM_CODE LoadEMU2PSRAM(TCHAR *filename,u32 is_EMU)
 			}
 			SetPSRampage(page);
 			dmaCopy((void*)pReadCache,PSRAMBase_S98 + rom_start_address + Address, 0x20000);
-			
+
 			page = 0;
 		}
 		f_close(&gfile);
@@ -1517,8 +1571,8 @@ u32 IWRAM_CODE LoadEMU2PSRAM(TCHAR *filename,u32 is_EMU)
 	else
 	{
 		return 1;
-	}	
-	
+	}
+
 	return 0;
 }
 //---------------------------------------------------------------------------------
@@ -1534,9 +1588,9 @@ void save_set_info_SELECT(void)
 	/*for(address=13;address < 22;address++)
 	{
 		SET_info_buffer[address] = Read_SET_info(address);
-	}	*/	
-	
-	//save to nor 
+	}	*/
+
+	//save to nor
 	Save_SET_info(SET_info_buffer,0x200);
 }
 //---------------------------------------------------------------------------------
@@ -1557,14 +1611,14 @@ void Sort_folder(u32 folder_total)
 				{
 					dmaCopy(&pFolder[i+1],&(pFilename_temp.filename),sizeof(FM_Folder_FS));
 					dmaCopy(&pFolder[i],&pFolder[i+1],sizeof(FM_Folder_FS));
-					dmaCopy(&(pFilename_temp.filename),&pFolder[i],sizeof(FM_Folder_FS));					
+					dmaCopy(&(pFilename_temp.filename),&pFolder[i],sizeof(FM_Folder_FS));
 				}
 			}
 		}
 	}
 }
 //---------------------------------------------------------------------------------
-//Sort file 
+//Sort file
 void Sort_file(u32 game_total_SD)
 {
 	u32 ret;
@@ -1581,45 +1635,45 @@ void Sort_file(u32 game_total_SD)
 				{
 					dmaCopy(&pFilename_buffer[i+1],&pFilename_temp,sizeof(FM_FILE_FS));
 					dmaCopy(&pFilename_buffer[i],&pFilename_buffer[i+1],sizeof(FM_FILE_FS));
-					dmaCopy(&pFilename_temp,&pFilename_buffer[i],sizeof(FM_FILE_FS));					
+					dmaCopy(&pFilename_temp,&pFilename_buffer[i],sizeof(FM_FILE_FS));
 				}
 			}
 		}
-	}	
-}	
+	}
+}
 //---------------------------------------------------------------------------------
 u32 Load_Thumbnail(TCHAR *pfilename_pic)
 {
   u32 rett;
   u32 res;
   TCHAR picpath[30];
-	
+
 	res = f_open(&gfile, pfilename_pic, FA_READ);
 	if(res == FR_OK)
 	{
 		f_lseek(&gfile, 0xAC);
 		f_read(&gfile, GAMECODE, 4, (UINT *)&rett);
 		f_close(&gfile);
-					
+
 		memset(picpath,00,30);
-		sprintf(picpath,"/IMGS/%c/%c/%c%c%c%c.bmp",GAMECODE[0],GAMECODE[1],GAMECODE[0],GAMECODE[1],GAMECODE[2],GAMECODE[3]);						
+		sprintf(picpath,"/IMGS/%c/%c/%c%c%c%c.bmp",GAMECODE[0],GAMECODE[1],GAMECODE[0],GAMECODE[1],GAMECODE[2],GAMECODE[3]);
 		res = f_open(&gfile,picpath, FA_READ);
 		if(res == FR_OK)
 		{
-			f_read(&gfile, pReadCache+0x10000, 0x4B38, (UINT*)&rett);			
-			f_close(&gfile);	
-			return 1;												
-		}		
-				
-	}			
-	return 0;	
+			f_read(&gfile, pReadCache+0x10000, 0x4B38, (UINT*)&rett);
+			f_close(&gfile);
+			return 1;
+		}
+
+	}
+	return 0;
 }
 //---------------------------------------------------------------------------------
 //Delete file
 void SD_list_L_START(u32 show_offset,u32 file_select,u32 folder_total)
 {
-	//u32 res;	
-	DrawPic((u16*)gImage_MENU, 56, 25, 128, 110, 0, 0, 1);//show menu pic		
+	//u32 res;
+	DrawPic((u16*)gImage_MENU, 56, 25, 128, 110, 0, 0, 1);//show menu pic
 	Show_MENU_btn();
 
 	DrawHZText12(gl_LSTART_help,0,60,60,gl_color_text,1);//use sure?gl_LSTART_help
@@ -1630,15 +1684,15 @@ void SD_list_L_START(u32 show_offset,u32 file_select,u32 folder_total)
 		scanKeys();
 		u16 keysdown  = keysDown();
 		if (keysdown & KEY_A) {
-			TCHAR *pdelfilename;			
-			pdelfilename = pFilename_buffer[show_offset+file_select-folder_total].filename;	
-			/*res = */f_unlink(pdelfilename);	
+			TCHAR *pdelfilename;
+			pdelfilename = pFilename_buffer[show_offset+file_select-folder_total].filename;
+			/*res = */f_unlink(pdelfilename);
 			break;
 		}
 		else if(keysdown & KEY_B){
 			break;
 		}
-	}	
+	}
 }
 //---------------------------------------------------------------------------------
 u32 Check_file_type(TCHAR *pfilename)
@@ -1648,7 +1702,7 @@ u32 Check_file_type(TCHAR *pfilename)
 	if(!strcasecmp(&(pfilename[strlen8-3]), "gba"))
 	{
 		return 0;
-	}	
+	}
 	else if(!strcasecmp(&(pfilename[strlen8-3]), "gbc"))
 	{
     return 1;
@@ -1661,10 +1715,10 @@ u32 Check_file_type(TCHAR *pfilename)
 	{
     return 3;
 	}
-	else 
+	else
 	{
 		return 0xff;
-	}	
+	}
 }
 //---------------------------------------------------------------------------------
 void Show_error_num(u8 error_num)
@@ -1697,7 +1751,7 @@ void Show_error_num(u8 error_num)
 			break;
 		default:
 			sprintf(msg,"%s","error?");
-			break;				
+			break;
 	}
 
 	DrawHZText12(msg,0,90,2, RGB(31,00,00),1);
@@ -1712,13 +1766,13 @@ u32 Get_savefilesize(BYTE saveMODE)
 		case 0x00:savefilesize=0x0;break;//no save
 		case 0x11:savefilesize=0x8000;break;//SRAM_TYPE 32k
 		case 0x21:savefilesize=0x200;break;//EEPROM_TYPE 512
-		case 0x22:savefilesize=0x2000;break;//EEPROM_TYPE 8k	
+		case 0x22:savefilesize=0x2000;break;//EEPROM_TYPE 8k
 		case 0x23:savefilesize=0x2000;break;//EEPROM_TYPE v125 v126 must use 8k
 		case 0x32:savefilesize=0x10000;break;//FLASH_TYPE 64k
-		case 0x33:savefilesize=0x10000;break;//FLASH512_TYPE 64k	
+		case 0x33:savefilesize=0x10000;break;//FLASH512_TYPE 64k
 		case 0x31:savefilesize=0x20000;break;//FLASH1M_TYPE 128k
-		case 0xee:savefilesize=0x10000;break;//EMU 64k	
-		default:	savefilesize=0x10000;break;//UNKNOW,FF  for homebrew SRAM_TYPE	//2018-4-23 some emu homebrew need 64kByte	
+		case 0xee:savefilesize=0x10000;break;//EMU 64k
+		default:	savefilesize=0x10000;break;//UNKNOW,FF  for homebrew SRAM_TYPE	//2018-4-23 some emu homebrew need 64kByte
 	}
 	return 	savefilesize;
 }
@@ -1726,65 +1780,65 @@ u32 Get_savefilesize(BYTE saveMODE)
 u8 Process_savefile(u32 is_EMU,TCHAR *pfilename,u32 gamefilesize,BYTE saveMODE)
 {
 	u32 res;
-	u32 savefilesize=0;	
+	u32 savefilesize=0;
 	TCHAR savfilename[100];
 	u32 strlen8;
-	
-	res=f_chdir(SAVER_FOLDER);	
+
+	res=f_chdir(SAVER_FOLDER);
 	if(res != FR_OK){
 		return 2;
 	}
-	
+
 	memcpy(savfilename,pfilename,100);
-	strlen8 = strlen(savfilename);		
+	strlen8 = strlen(savfilename);
 	if(is_EMU){
 		if(is_EMU ==2){//gb
 			(savfilename)[strlen8-2] = 'e';
 			(savfilename)[strlen8-1] = 's';
-			(savfilename)[strlen8-0] = 'v';		
-			(savfilename)[strlen8+1] = 0;	
-		}		
+			(savfilename)[strlen8-0] = 'v';
+			(savfilename)[strlen8+1] = 0;
+		}
 		else{
 			(savfilename)[strlen8-3] = 'e';
 			(savfilename)[strlen8-2] = 's';
 			(savfilename)[strlen8-1] = 'v';
-		}	
+		}
 	}
-	else{//gba		
+	else{//gba
 		(savfilename)[strlen8-3] = 's';
 		(savfilename)[strlen8-2] = 'a';
 		(savfilename)[strlen8-1] = 'v';
 	}
 	//#ifdef DEBUG
 		//DEBUG_printf("sav %s",savfilename);
-		//DEBUG_printf("saveMODE %x",saveMODE);	
-		//wait_btn();			
+		//DEBUG_printf("saveMODE %x",saveMODE);
+		//wait_btn();
 	//#endif
-		
-	res = f_open(&gfile,savfilename, FA_OPEN_EXISTING);		
+
+	res = f_open(&gfile,savfilename, FA_OPEN_EXISTING);
 	if(res == FR_OK)//have a old save file
 	{
-		savefilesize = f_size(&gfile);		
-		f_close(&gfile);				
-	}					
+		savefilesize = f_size(&gfile);
+		f_close(&gfile);
+	}
 	else //make a new one
-	{	
-		
-		ShowbootProgress(gl_make_sav);					
-		savefilesize = Get_savefilesize(saveMODE);	
+	{
+
+		ShowbootProgress(gl_make_sav);
+		savefilesize = Get_savefilesize(saveMODE);
 		res = SavefileWrite(savfilename, savefilesize);
 		if(res == 0){
 			u8 error_num = 5;
 			return error_num;
 		}
 	}
-	
+
 	if(savefilesize)
-	{			
+	{
 		Bank_Switching(0);
-		res = Loadsavefile(savfilename);	
-		
-		/*Save_savefile("dump.bin",0x8000);	
+		res = Loadsavefile(savfilename);
+
+		/*Save_savefile("dump.bin",0x8000);
 		DEBUG_printf("dump finish");
 		wait_btn();	*/
 		memset(SAV_info_buffer,0x00,sizeof(SAV_info_buffer));
@@ -1792,8 +1846,8 @@ u8 Process_savefile(u32 is_EMU,TCHAR *pfilename,u32 gamefilesize,BYTE saveMODE)
 		SAV_info_buffer[1] = savefilesize>>9;
 		//memcpy(&SAV_info_buffer[2],savfilename,100);
 		strcpy((char*)&SAV_info_buffer[2],savfilename);
-		Save_sav_info(SAV_info_buffer,0x200);								
-	}					
+		Save_sav_info(SAV_info_buffer,0x200);
+	}
 
 	FAT_table_buffer[0x1F0/4] = gamefilesize;//size
 	FAT_table_buffer[0x1F4/4] = DMA_COPY_MODE;  //rom copy to psram
@@ -1802,10 +1856,10 @@ u8 Process_savefile(u32 is_EMU,TCHAR *pfilename,u32 gamefilesize,BYTE saveMODE)
 	//DEBUG_printf(" %08X %08X ", FAT_table_buffer[0],FAT_table_buffer[1]);
 	//DEBUG_printf(" %08X %08X ", FAT_table_buffer[2],FAT_table_buffer[3]);
 	//DEBUG_printf(" %08X %08X ", FAT_table_buffer[4],FAT_table_buffer[5]);
-	//DEBUG_printf(" %08X %08X ", FAT_table_buffer[0x200/4],FAT_table_buffer[0x204/4]);		
+	//DEBUG_printf(" %08X %08X ", FAT_table_buffer[0x200/4],FAT_table_buffer[0x204/4]);
 	//DEBUG_printf(" %08X %08X ", FAT_table_buffer[0x208/4],FAT_table_buffer[0x20C/4]);
 	//DEBUG_printf(" %08X %08X ", FAT_table_buffer[0x1F0/4],FAT_table_buffer[0x1F4/4]);
-	//DEBUG_printf(" %08X %08X ", FAT_table_buffer[0x1F8/4],FAT_table_buffer[0x1FC/4]);					
+	//DEBUG_printf(" %08X %08X ", FAT_table_buffer[0x1F8/4],FAT_table_buffer[0x1FC/4]);
 
 	return 0;
 }
@@ -1819,27 +1873,27 @@ void Check_save_flag(void)
 	savefilesize = Read_sav_info(1)<<9;
 	if(readd==0x11)
 	{
-			//u32 res;     
+			//u32 res;
 			register u32 loopwrite ;
 			DrawPic((u16*)gImage_SD, 0, 0, 240, 160, 0, 0, 1);
 			for(loopwrite=0;loopwrite<0x200/2;loopwrite++)
 			{
 				((u16*)SAV_info_buffer)[loopwrite] = Read_sav_info(loopwrite+2);
-			}				
-			DrawPic((u16*)gImage_MENU, 56, 25, 128, 110, 0, 0, 1);//show menu pic		
-			
+			}
+			DrawPic((u16*)gImage_MENU, 56, 25, 128, 110, 0, 0, 1);//show menu pic
+
 
 			DrawHZText12(gl_save_sav,0,60,28,gl_color_text,1);//use sure?gl_LSTART_help
 			DrawHZText12((TCHAR *)SAV_info_buffer,   20,60,40,0x7fff,1);//file name
 			DrawHZText12((TCHAR *)SAV_info_buffer+20,20,60,52,0x7fff,1);//file name
 			DrawHZText12((TCHAR *)SAV_info_buffer+40,20,60,64,0x7fff,1);//file name
 			//DrawHZText12(gl_formatnor_info,5,60,90,gl_color_text,1);//use sure?
-			
+
 			if(gl_auto_save_sel){
 					DrawHZText12(gl_save_ing,0,60,88,gl_color_text,1);//use sure?gl_LSTART_help
 					f_mkdir(SAVER_FOLDER);//"/SAVER"
-					f_chdir(SAVER_FOLDER); 
-					Save_savefile((TCHAR *)SAV_info_buffer,savefilesize);			
+					f_chdir(SAVER_FOLDER);
+					Save_savefile((TCHAR *)SAV_info_buffer,savefilesize);
 			}
 			else{
 				Show_MENU_btn();
@@ -1852,7 +1906,7 @@ void Check_save_flag(void)
 						f_mkdir(SAVER_FOLDER);
 						f_chdir(SAVER_FOLDER);
 						Save_savefile((TCHAR *)SAV_info_buffer,savefilesize);
-						/*TCHAR bmpfilename[100];	
+						/*TCHAR bmpfilename[100];
 						u32 bmpnum;
 						for(bmpnum=0;bmpnum<1000;bmpnum++)
 						{
@@ -1869,7 +1923,7 @@ void Check_save_flag(void)
 				}
 			}
 			memset(SAV_info_buffer,0x00,sizeof(SAV_info_buffer));//clean flag
-			Save_sav_info(SAV_info_buffer,0x200);				
+			Save_sav_info(SAV_info_buffer,0x200);
 
 	}
 }
@@ -1881,12 +1935,12 @@ void Set_saveMODE(BYTE saveMODE)
 	{
 		SET_info_buffer[address] = Read_SET_info(address);
 	}
-	
+
 	SET_info_buffer[assress_saveMODE] = saveMODE;
 
 
-	
-	//save to nor 
+
+	//save to nor
 	Save_SET_info(SET_info_buffer,0x200);
 }
 //---------------------------------------------------------------------------------
@@ -1906,31 +1960,32 @@ int main(void) {
 	u32 game_folder_total;
 	u32 file_select;
 	u32 show_offset;
+	s32 force_file_offset = -1;
 	u32 updata;
 	u32 continue_MENU;
 	PAGE_NUM page_num=SD_list;
 	u32 page_mode;
 	u32 shift;
 	u32 short_filename=0;
-	
+
 	u8 error_num;
 
-	//TCHAR savfilename[100];		
+	//TCHAR savfilename[100];
 	//BYTE saveMODE;
-		
+
 	gl_currentpage = 0x8002 ;//kernel mode
 
 	SetMode (MODE_3 | BG2_ENABLE );
-	
-	SD_Disable();	
+
+	SD_Disable();
 	Set_RTC_status(1);
 
 
 	//check FW
-	Check_FW_update();	
-		
-	DrawPic((u16*)gImage_splash, 0, 0, 240, 160, 0, 0, 1);	
-	CheckLanguage();	
+	Check_FW_update();
+
+	DrawPic((u16*)gImage_splash, 0, 0, 240, 160, 0, 0, 1);
+	CheckLanguage();
 	CheckSwitch();
 
 	res = f_mount(&EZcardFs, "", 1);
@@ -1945,21 +2000,23 @@ int main(void) {
 		DrawHZText12(gl_init_ok,0,2,20, gl_color_cheat_black,1);
 		DrawHZText12(gl_Loading,0,2,33, gl_color_cheat_black,1);
 	}
-	VBlankIntrWait();	
-	
+	VBlankIntrWait();
+
 	Check_save_flag();
 
-	f_chdir("/");
 	//TCHAR currentpath[MAX_path_len];
 	memset(currentpath,00,MAX_path_len);
 	memset(currentpath_temp,0x00,MAX_path_len);
 	folder_select = 1;
 	memset(p_folder_select_show_offset,0x00,100);
 	memset(p_folder_select_file_select,0x00,100);
-	
-	res = f_getcwd(currentpath, sizeof currentpath / sizeof *currentpath);
 
-	Read_NOR_info();	
+	if (!LoadLastPath()) {
+		f_chdir("/");
+		res = f_getcwd(currentpath, sizeof currentpath / sizeof *currentpath);
+	}
+
+	Read_NOR_info();
 	gl_norOffset = 0x000000;
 	game_total_NOR = GetFileListFromNor();//initialize to prevent direct writes to NOR without page turning
 
@@ -1970,12 +2027,12 @@ int main(void) {
 	}
 
 refind_file:
-	
+
 
 	if(page_num== SD_list)
 	{
 		folder_total = 0;
-		game_total_SD = 0; 
+		game_total_SD = 0;
 
 		res = f_opendir(&dir,currentpath);
 		if (res == FR_OK)
@@ -1984,7 +2041,7 @@ refind_file:
 			{
 				res = f_readdir(&dir, &fileinfo);                   //read next
 				//DEBUG_printf("=%x %s %x %x",res, fileinfo.fname,fileinfo.fname[0],fileinfo.fattrib);
-				//wait_btn();								
+				//wait_btn();
 				if (res != FR_OK || fileinfo.fname[0] == 0) break;
 
 				if(	(fileinfo.fattrib == AM_DIR) || (fileinfo.fattrib == 0x30))//DIR and exFAT dir
@@ -2005,11 +2062,30 @@ refind_file:
 			}
 		}
 		f_closedir(&dir);
-		
+
 		game_folder_total = folder_total + game_total_SD;
-		
+
 		Sort_folder(folder_total);//folder
 		Sort_file(game_total_SD);//file
+
+		// try and find offset of the file.
+		if (g_find_path[0] != '\0') {
+			for (u32 i = 0; i < game_folder_total; i++) {
+				char* name;
+				if (i < folder_total) {
+					name = pFolder[i].filename;
+				} else {
+					name = pFilename_buffer[i - folder_total].filename;
+				}
+
+				if (!strcasecmp(name, g_find_path)) {
+					force_file_offset = i;
+					break;
+				}
+			}
+
+			g_find_path[0] = '\0';
+		}
   }
   else
   {
@@ -2017,60 +2093,73 @@ refind_file:
  		gl_norOffset = 0x000000;
 		game_total_NOR = GetFileListFromNor();
   }
-  
-  if(folder_select){
+
+  // number of files displayed on the screen.
+  #define MAX_FILES_IN_LIST 9
+
+  if (force_file_offset >= 0) {
+	if (force_file_offset > MAX_FILES_IN_LIST) {
+		file_select = MAX_FILES_IN_LIST;
+		show_offset = force_file_offset - MAX_FILES_IN_LIST;
+	} else {
+		file_select = force_file_offset;
+		show_offset = 0;
+	}
+	force_file_offset = -1;
+  }
+  else if(folder_select){
 		file_select = p_folder_select_file_select[folder_select];
 		show_offset = p_folder_select_show_offset[folder_select];
   }
-  else{	
+  else{
 		file_select = 0;
 		show_offset = 0;
 	}
 	continue_MENU = 0;
-	
+
 	u32 haveThumbnail;
 	u32 is_GBA_old=0;
 	u32 is_GBA;
-	
+
 	u32 play_re;
 	play_re = 0xBB;
 //NOR_list:
 //SD_list:
 re_showfile:
-	
+
 	shift =0;
 	page_mode=0;
   updata=1;
   u32 key_L=0;
 	setRepeat(5,1);
-	
+
 	if(page_num==SD_list)
 	{
-		DrawPic((u16*)gImage_SD, 0, 0, 240, 160, 0, 0, 1);	
+		DrawPic((u16*)gImage_SD, 0, 0, 240, 160, 0, 0, 1);
 	}
 	while(1)
 	{
 		while(1)//2
 		{
 			VBlankIntrWait();
-			VBlankIntrWait();			
+			VBlankIntrWait();
 			if((shift==0) || (gl_show_Thumbnail==0)){
-				short_filename = 0;				
+				short_filename = 0;
 			}
 			if(shift==0){
 				dwName =0;
-			}			
+			}
 			shift++;
-			
+
 			haveThumbnail = 0;
 			is_GBA = 0;
-			
+
 			if(updata && gl_show_Thumbnail)
 			{
 		  	//TCHAR picpath[30];
-	
+
 				TCHAR *pfilename_pic;
-				
+
 				if(page_num==SD_list){
 					pfilename_pic = pFilename_buffer[show_offset+file_select-folder_total].filename;
 				}
@@ -2081,27 +2170,27 @@ re_showfile:
 				u32 strlengba = strlen(pfilename_pic) ;
 				if(!strcasecmp(&(pfilename_pic[strlengba-3]), "gba"))
 				{
-					is_GBA = 1;		
-					haveThumbnail = Load_Thumbnail(pfilename_pic);	
-					short_filename = 1;			
+					is_GBA = 1;
+					haveThumbnail = Load_Thumbnail(pfilename_pic);
+					short_filename = 1;
 				}
 				else{
 					if((is_GBA_old==1) && (is_GBA==0)){
 						updata = 1;
 					}
-				}	
-				
+				}
+
 				is_GBA_old = is_GBA;
 			}
 	    if(updata==1){//reshow all
 	    	if(page_num==SD_list)
 	    	{
-	    		//DrawPic((u16*)gImage_SD, 0, 0, 240, 160, 0, 0, 1);	
-	    		ClearWithBG((u16*)gImage_SD,0, 0, 90, 20, 1);  //  		
+	    		//DrawPic((u16*)gImage_SD, 0, 0, 240, 160, 0, 0, 1);
+	    		ClearWithBG((u16*)gImage_SD,0, 0, 90, 20, 1);  //
 	    		ClearWithBG((u16*)gImage_SD,185+6, 3, 6*3, 16, 1);//Show_game_num
 	    		ClearWithBG((u16*)gImage_SD,0, 20, 240, 160-20, 1);
 	    		Show_ICON_filename_SD(show_offset,file_select,gl_show_Thumbnail&&is_GBA);
-	    		    		
+
 	    	}
 	    	else if(page_num==SET_win)//set windows
 	    	{
@@ -2136,16 +2225,16 @@ re_showfile:
 					DrawPic((u16*)gImage_HELP, 0, 0, 240, 160, 0, 0, 1);
 					Show_help_window();
 					DrawPic((u16*)gImage_SET2, 0, 0, 240, 160, 0, 0, 1);
-					page_num = SET2_win;//	
+					page_num = SET2_win;//
 					goto re_showfile;
 	    	}
 	    	else
-	    	{    		
+	    	{
 	      	DrawPic((u16*)gImage_NOR, 0, 0, 240, 160, 0, 0, 1);
-	    		//ClearWithBG((u16*)gImage_NOR,0, 0, 90, 20, 1);  //  		
+	    		//ClearWithBG((u16*)gImage_NOR,0, 0, 90, 20, 1);  //
 	    		//ClearWithBG((u16*)gImage_NOR,185+6, 3, 6*7, 16, 1);
 	    		//ClearWithBG((u16*)gImage_NOR,0, 20, 240, 160-20, 1);
-					Show_ICON_filename_NOR(show_offset,file_select);			    		
+					Show_ICON_filename_NOR(show_offset,file_select);
 	    	}
 	    	Show_game_num(file_select+show_offset+1,page_num);
 	  	}
@@ -2162,14 +2251,14 @@ re_showfile:
 	    	}
 	    	Show_game_num(file_select+show_offset+1,page_num );
 	  	}
-	  	
+
 	  	if( updata && gl_show_Thumbnail && is_GBA && (page_num==SD_list) )
 			{
-	  		if(haveThumbnail){				
-	  			DrawPic((u16*)(pReadCache+0x10036), 120, 80, 120, 80, 0, 0, 1);//show game pic				
+	  		if(haveThumbnail){
+	  			DrawPic((u16*)(pReadCache+0x10036), 120, 80, 120, 80, 0, 0, 1);//show game pic
 				}
 				else{
-					DrawPic((u16*)(gImage_NOTFOUND), 120, 80, 120, 80, 0, 0, 1);//show game pic	
+					DrawPic((u16*)(gImage_NOTFOUND), 120, 80, 120, 80, 0, 0, 1);//show game pic
 				}
 			}
 			if(continue_MENU) break;
@@ -2177,7 +2266,7 @@ re_showfile:
 				if(game_folder_total)
 					Filename_loop(shift,show_offset,file_select,short_filename);
 			}
-				
+
 	    updata=0;
 			scanKeys();
 			u16 keysdown  = keysDown();
@@ -2264,15 +2353,15 @@ re_showfile:
 	      	DrawPic((u16*)gImage_SD, 0, 0, 240, 160, 0, 0, 1);
 	      	folder_select=1;
 	    	}
-				page_num = SD_list;	
-				shift = 0;			
+				page_num = SD_list;
+				shift = 0;
 			}
 			else if(keys_released & KEY_L)
 			{
 				key_L = 0;
 			}
 			else if(keysdown & KEY_R)
-			{			
+			{
 	      if(page_num==HELP){continue;}
 				page_num ++;
 				if(page_num==NOR_list)DrawPic((u16*)gImage_NOR, 0, 0, 240, 160, 0, 0, 1);
@@ -2280,31 +2369,31 @@ re_showfile:
 				folder_select=0;
 				shift = 0;
 				goto refind_file;
-			}   
+			}
 			else if(keysdown & KEY_B)//return
 			{
 				if(page_num == SD_list)
 				{
 	   			//res = f_getcwd(currentpath, sizeof currentpath / sizeof *currentpath);
-	   			if(strcmp(currentpath,"/") !=0 ){		
+	   			if(strcmp(currentpath,"/") !=0 ){
 		    		dmaCopy(currentpath, currentpath_temp, MAX_path_len);
 		    		TCHAR *p=strrchr(currentpath_temp, '/');
 		    		memset(currentpath,0x00,MAX_path_len);
 		    		strncpy(currentpath, currentpath_temp, p-currentpath_temp);
 		    		if(currentpath[0]==0) currentpath[0]='/';
-		    		
+
 						res=f_chdir(currentpath);
 						if(res != FR_OK){
 							error_num = 10;
 							Show_error_num(error_num);
 							goto re_showfile;
-						}						
-						
+						}
+
 						p_folder_select_show_offset[folder_select] = 0;//clean
 						p_folder_select_file_select[folder_select] = 0;//clean
 						if(folder_select){
 							folder_select--;
-						}												
+						}
 				    goto refind_file;
 			    }
 		  	}
@@ -2314,25 +2403,26 @@ re_showfile:
 				gl_show_Thumbnail = !gl_show_Thumbnail;
 				save_set_info_SELECT();
 				updata=1;
-			}	
+			}
 			else if(keysdown & KEY_A)
 			{
 				if(page_num==SD_list){
-					//res = f_getcwd(currentpath, sizeof currentpath / sizeof *currentpath);		
+					//res = f_getcwd(currentpath, sizeof currentpath / sizeof *currentpath);
 		      if( show_offset+file_select <  folder_total)
-		      {	   				
-	   				if(strcmp(currentpath,"/") !=0){	
-	   					sprintf(currentpath,"%s%s",currentpath,"/");
-						}
-		      	sprintf(currentpath,"%s%s",currentpath,pFolder[show_offset+file_select].filename);
-		      	
+		      {
+	   				if (strcmp(currentpath,"/") !=0) {
+						strcat(currentpath, "/");
+					}
+
+					strcat(currentpath, pFolder[show_offset+file_select].filename);
+
 						res=f_chdir(currentpath);
 						if(res != FR_OK){
 							error_num = 0;
 							Show_error_num(error_num);
 							goto re_showfile;
-						}	
-											
+						}
+
 						p_folder_select_show_offset[folder_select] = show_offset;
 						p_folder_select_file_select[folder_select] = file_select;
 						folder_select++;
@@ -2349,7 +2439,7 @@ re_showfile:
 						}
 						else{
 							goto re_showfile;
-						} 
+						}
 						//break;
 					}
 				}
@@ -2361,23 +2451,23 @@ re_showfile:
 						}
 						else{
 							goto re_showfile;
-						} 
+						}
 						//break;
 					}
-				} 
-					
-			}		
-			else if(keysdown & (KEY_START)  ) 
+				}
+
+			}
+			else if(keysdown & (KEY_START)  )
 			{
-				if(page_num==SD_list){//only work on sd list								
+				if(page_num==SD_list){//only work on sd list
 					if(key_L)
 					{
 						if(show_offset+file_select >= folder_total){
 							SD_list_L_START(show_offset,file_select,folder_total);
-							goto refind_file;	
-						}				
+							goto refind_file;
+						}
 					}
-					else{//only START //Recently played							
+					else{//only START //Recently played
 						play_re=show_recently_play();
 						if(play_re==0xBB){
 							goto refind_file;//KEY B
@@ -2393,13 +2483,13 @@ re_showfile:
 							}
 							else{
 								goto re_showfile;
-							} 
+							}
 							//break;
 						}
 					}
 				}
 			}
-				
+
 			ShowTime(page_num,page_mode);
 		}	//2
 	}
@@ -2407,42 +2497,42 @@ re_showfile:
 //---------------------------------------------------------------
 void Boot_NOR_game(u32 show_offset,	u32 file_select,u32 key_L)
 {
-	//TCHAR savfilename[100];	
+	//TCHAR savfilename[100];
 	TCHAR *pfilename;
 	u32 gamefilesize=0;
-	BYTE SAVEMODE; 
+	BYTE SAVEMODE;
 	BYTE error_num;
 	u32 res;
-	
+
 	Clear(0, 0, 240, 160, gl_color_cheat_black, 1);
 	DrawHZText12(gl_Loading,0,(240-strlen(gl_Loading)*6)/2,74, gl_color_text,1);
 
-	init_FAT_table();		
-	
+	init_FAT_table();
+
 	res = f_mkdir(SAVER_FOLDER);//"/SAVER"
 	if((res != FR_OK) && (res != FR_EXIST)){
 		error_num = 2;
 		Show_error_num(error_num);
 		return;
 	}
-		
-	//boot nor game 
+
+	//boot nor game
 	pfilename = pNorFS[show_offset+file_select].filename;
 	gamefilesize = pNorFS[show_offset+file_select].filesize;
-	SAVEMODE = pNorFS[show_offset+file_select].savemode;	
-	
-	ShowbootProgress(gl_check_sav);				
+	SAVEMODE = pNorFS[show_offset+file_select].savemode;
+
+	ShowbootProgress(gl_check_sav);
 	//memcpy(savfilename,pfilename,100);
 	error_num = Process_savefile(0,pfilename,gamefilesize,SAVEMODE);
 	if(error_num != 0){
 		Show_error_num(error_num);
 		return;
 	}
-	
+
 	Set_64MROM_flag(pNorFS[show_offset+file_select].is_64MBrom);
 	if(pNorFS[show_offset+file_select].have_patch && pNorFS[show_offset+file_select].have_RTS)
-	{	
-		ShowbootProgress(gl_check_RTS);		
+	{
+		ShowbootProgress(gl_check_RTS);
 		u32 size = Check_RTS(pfilename);
 		if(size ==0)
 		{
@@ -2451,59 +2541,59 @@ void Boot_NOR_game(u32 show_offset,	u32 file_select,u32 key_L)
 			return;
 		}
 	}
-			
+
 	FAT_table_buffer[0x1F4/4] = SET_PARAMETER_MODE;
 	Send_FATbuffer(FAT_table_buffer,1); //only RTS FAT and some parameter
 	//wait_btn();
 	SetRompageWithHardReset(pNorFS[show_offset+file_select].rompage,key_L);
-	while(1);	
+	while(1);
 }
 //---------------------------------------------------------------
 u8 FRAM_save_op(u8 OP)
 {
 	u32 res;
-	u32 savefilesize=0;	
+	u32 savefilesize=0;
 	TCHAR savfilename[100];
 	u32 strlen8;
 
 	TCHAR *pfilename;
-	BYTE SAVEMODE; 	
+	BYTE SAVEMODE;
 
 	res = f_mkdir(SAVER_FOLDER);//"/SAVER"
 	if((res != FR_OK) && (res != FR_EXIST)){
 		return 2;
-	}		
-	res=f_chdir(SAVER_FOLDER);	
+	}
+	res=f_chdir(SAVER_FOLDER);
 	if(res != FR_OK){
 		return 2;
 	}
-	
+
 	pfilename = pNorFS[0].filename;
-	SAVEMODE = pNorFS[0].savemode;	
-	
+	SAVEMODE = pNorFS[0].savemode;
+
 	memcpy(savfilename,pfilename,100);
-	strlen8 = strlen(savfilename);			
+	strlen8 = strlen(savfilename);
 	(savfilename)[strlen8-3] = 's';
 	(savfilename)[strlen8-2] = 'a';
 	(savfilename)[strlen8-1] = 'v';
-		
-	res = f_open(&gfile,savfilename, FA_OPEN_EXISTING);	
-	
+
+	res = f_open(&gfile,savfilename, FA_OPEN_EXISTING);
+
 	if(OP ==1){ //load to fram
 		if(res == FR_OK)//have a old save file
 		{
-			f_close(&gfile);		
+			f_close(&gfile);
 			Bank_Switching(0);
-			res = Loadsavefile(savfilename);	
-			DrawHZText12(gl_save_loaded,0,66,118-15,RGB(00,31,00),1);		
-		}	
+			res = Loadsavefile(savfilename);
+			DrawHZText12(gl_save_loaded,0,66,118-15,RGB(00,31,00),1);
+		}
 		else {
-			DrawHZText12(gl_file_noexist,0,66,118-15,RGB(31,00,00),1);			
-		}			
-	}		
+			DrawHZText12(gl_file_noexist,0,66,118-15,RGB(31,00,00),1);
+		}
+	}
 	else if(OP ==2){ //bak fram save
-		if(res == FR_OK)//have a old save file	
-		{					
+		if(res == FR_OK)//have a old save file
+		{
 			DrawHZText12(gl_file_exist,0,66,118-15,RGB(31,00,00),1);
 			while(1){
 				VBlankIntrWait();
@@ -2511,22 +2601,22 @@ u8 FRAM_save_op(u8 OP)
 				u16 keysdown  = keysDown();
 				if (keysdown & KEY_A) {
 					DrawPic((u16*)gImage_MENU, 56, 25, 128, 110, 0, 0, 1);//show menu pic
-					Show_MENU_btn();															
+					Show_MENU_btn();
 					break;
 				}
 				else if(keysdown & KEY_B){
 					return 0;
 					//break;
 				}
-			}	
+			}
 		}
 		savefilesize =Get_savefilesize(SAVEMODE);
-		Save_savefile(savfilename,savefilesize);	
-		DrawHZText12(gl_save_saved,0,66,118-15,RGB(00,31,00),1);											
-	}	
-	wait_btn();		
+		Save_savefile(savfilename,savefilesize);
+		DrawHZText12(gl_save_saved,0,66,118-15,RGB(00,31,00),1);
+	}
+	wait_btn();
 	return 0;
-	
+
 }
 //---------------------------------------------------------------
 u8 NOR_list_MENU(u32 show_offset,	u32 file_select)
@@ -2544,24 +2634,24 @@ u8 NOR_list_MENU(u32 show_offset,	u32 file_select)
 	u32 key_L=0;
 	u8 error_num;
 
-			
+
 	//pfilename = pNorFS[show_offset+file_select].filename;
 	if(show_offset+file_select==0){
-		MENU_max = 4;	//first game	
+		MENU_max = 4;	//first game
 	}
 	else{
-		MENU_max = 2;		
+		MENU_max = 2;
 	}
-	DrawPic((u16*)gImage_MENU, 56, 25, 128, 110, 0, 0, 1);//show menu pic		
-	Show_MENU_btn();			
+	DrawPic((u16*)gImage_MENU, 56, 25, 128, 110, 0, 0, 1);//show menu pic
+	Show_MENU_btn();
 	while(1)//3
 	{
 		if(re_menu)
-		{				
-			Show_MENU(MENU_line,NOR_list, 0,0,0,(show_offset+file_select==0));								
+		{
+			Show_MENU(MENU_line,NOR_list, 0,0,0,(show_offset+file_select==0));
 		}
 		VBlankIntrWait();
-		
+
     re_menu=0;
 		scanKeys();
 		keysdown  = keysDown();
@@ -2575,7 +2665,7 @@ u8 NOR_list_MENU(u32 show_offset,	u32 file_select)
 			}
 			else if(MENU_line == MENU_max){
         MENU_line=0;
-        re_menu=1;	
+        re_menu=1;
 			}
 		}
 		else if(keysdown & KEY_UP)
@@ -2595,7 +2685,7 @@ u8 NOR_list_MENU(u32 show_offset,	u32 file_select)
 		}
 		else if(keysdown & KEY_L)
 		{
-			key_L = 1;		
+			key_L = 1;
 		}
 		else if(keys_released & KEY_L)
 		{
@@ -2612,35 +2702,35 @@ u8 NOR_list_MENU(u32 show_offset,	u32 file_select)
 					Block_Erase(gl_norOffset-pNorFS[show_offset+file_select].filesize);
 				}
 				else{
-					DrawHZText12(gl_lastest_game,0,66,118-15,gl_color_text,1);	
+					DrawHZText12(gl_lastest_game,0,66,118-15,gl_color_text,1);
 					wait_btn();
 				}
-				return 1;	
+				return 1;
 			}
 			else if(MENU_line==2){ //
 				//format all
 				FormatNor();
-				return 1;				
+				return 1;
 			}
 			else if(MENU_line==3){ //load save data to FARM
-				
+
 				error_num = FRAM_save_op(1);
 				if(error_num != 0){
 					Show_error_num(error_num);
-				}				
+				}
 				return 0;
 			}
 			else{//save FRAM data
 				error_num = FRAM_save_op(2);
 				if(error_num != 0){
 					Show_error_num(error_num);
-				}				
-				return 0;			
+				}
+				return 0;
 			}
 		}
 		ShowTime(NOR_list,0);
 	}	//3
-	
+
 	return 0;
 }
 //---------------------------------------------------------------
@@ -2648,11 +2738,11 @@ u8 SD_list_MENU(u32 show_offset,	u32 file_select,u32 play_re )
 {
 	u32 res;
 	u8 Save_num=0;//save tpye: auto
-	u8 old_Save_num=0;		
-	u32 havecht;	
+	u8 old_Save_num=0;
+	u32 havecht;
 	u32 MENU_line=0;
 	u32 re_menu=1;
-	u32 MENU_max;			
+	u32 MENU_max;
 	u32 is_EMU;
 	//u32 continue_MENU = 0;
 	u16 keysdown;
@@ -2661,32 +2751,32 @@ u8 SD_list_MENU(u32 show_offset,	u32 file_select,u32 play_re )
 	u32 key_L=0;
 	u8 error_num;
 	//u32 page_mode;
-	//TCHAR savfilename[100];	
+	//TCHAR savfilename[100];
 	TCHAR *pfilename;
 	BYTE SAVEMODE;
-	
-	//press A, show boot MENU;	
+
+	//press A, show boot MENU;
 	if(play_re==0xBB){
 		pfilename = pFilename_buffer[show_offset+file_select-folder_total].filename;
 	}
-	else{		
+	else{
 		char *p=strrchr(p_recently_play[play_re], '/');
 		strncpy(currentpath_temp, currentpath, 256);//old
 		memset(currentpath,00,256);
 		strncpy(currentpath, p_recently_play[play_re], p-p_recently_play[play_re]);
 		if(currentpath[0]==0){
 			currentpath[0] = '/';
-		}			
+		}
 		memset(current_filename,00,200);
-		strncpy(current_filename, p+1, 100);//remove directory path	
-		pfilename = current_filename;						
-	}		
+		strncpy(current_filename, p+1, 100);//remove directory path
+		pfilename = current_filename;
+	}
 
 	is_EMU=Check_file_type(pfilename);
 	if(is_EMU == 0xff) //can not boot
 	{
 		return 0;
-	}							
+	}
 	else if(is_EMU)
 	{
 		havecht = 0;
@@ -2695,23 +2785,23 @@ u8 SD_list_MENU(u32 show_offset,	u32 file_select,u32 play_re )
 	}
 	else{ //gba file
 		res=f_chdir(currentpath);//can open  re list game
-		havecht = Check_cheat_file(pfilename);	
-		old_Save_num = Check_mde_file(pfilename);	
+		havecht = Check_cheat_file(pfilename);
+		old_Save_num = Check_mde_file(pfilename);
 		Save_num	= old_Save_num;
-		MENU_max = 4+ ((gl_cheat_on==1)? ((havecht>0)?1:0):0) ;			
+		MENU_max = 4+ ((gl_cheat_on==1)? ((havecht>0)?1:0):0) ;
 	}
-		
+
 re_show_menu:
-	DrawPic((u16*)gImage_MENU, 56, 25, 128, 110, 0, 0, 1);//show menu pic		
-	Show_MENU_btn();			
+	DrawPic((u16*)gImage_MENU, 56, 25, 128, 110, 0, 0, 1);//show menu pic
+	Show_MENU_btn();
 	while(1)//3
 	{
 		if(re_menu)
-		{				
-			Show_MENU(MENU_line,SD_list, ((havecht>0)?1:0),Save_num,is_EMU,(show_offset+file_select==0));								
+		{
+			Show_MENU(MENU_line,SD_list, ((havecht>0)?1:0),Save_num,is_EMU,(show_offset+file_select==0));
 		}
 		VBlankIntrWait();
-		
+
     re_menu=0;
 		scanKeys();
 		keysdown  = keysDown();
@@ -2725,7 +2815,7 @@ re_show_menu:
 			}
 			else if(MENU_line == MENU_max){
         MENU_line=0;
-        re_menu=1;	
+        re_menu=1;
 			}
 		}
 		else if(keysdown & KEY_UP)
@@ -2763,16 +2853,16 @@ re_show_menu:
 		{
 			if(MENU_line==4){//save type
 				if(Save_num<5){
-					Save_num++;	
+					Save_num++;
 					re_menu=1;
 					DrawPic((u16*)gImage_MENU, 56, 25, 128, 110, 0, 0, 1);//show menu pic
 					Show_MENU_btn();
 				}
 			}
-		}	
+		}
 		else if(keysdown & KEY_L)
 		{
-			key_L = 1;		
+			key_L = 1;
 		}
 		else if(keys_released & KEY_L)
 		{
@@ -2788,10 +2878,10 @@ re_show_menu:
 			}
 			else if(MENU_line==5){
 				//open cht file
-				Open_cht_file(pfilename,havecht);	
+				Open_cht_file(pfilename,havecht);
 				re_menu=1;
 				MENU_line=1;
-				goto re_show_menu;	
+				goto re_show_menu;
 			}
 			else if(MENU_line==4){//save type
 				// do nothing
@@ -2799,7 +2889,7 @@ re_show_menu:
 			else{ //boot game or load to NOR
 				break;
 			}
-			
+
 		}
 		ShowTime(SD_list,0);
 	}	//3
@@ -2808,65 +2898,65 @@ re_show_menu:
 	DrawHZText12(gl_Loading,0,(240-strlen(gl_Loading)*6)/2,74, gl_color_text,1);
 
 	u32 gamefilesize=0;
-	//u32 savefilesize=0;		
+	//u32 savefilesize=0;
 	u32 ret;
 	u32 have_pat=0;
-	
-	init_FAT_table();		
-			
-	//Load to PSRAM or NOR 
 
-	f_chdir(currentpath);//return to game folder	
+	init_FAT_table();
+
+	//Load to PSRAM or NOR
+
+	f_chdir(currentpath);//return to game folder
 	res = f_open(&gfile, pfilename, FA_READ);
 	if(res == FR_OK)			{
 		f_lseek(&gfile, 0xAC);
-		f_read(&gfile, GAMECODE, 4, (UINT *)&ret);			
+		f_read(&gfile, GAMECODE, 4, (UINT *)&ret);
 		gamefilesize = f_size(&gfile);
 		f_close(&gfile);
 	}
 	else{
 		memset(GAMECODE,'F',4);
-	}	
-											
+	}
+
 	//check
-	
-	SAVEMODE = Get_saveMODE(Save_num,gamefilesize);			
+
+	SAVEMODE = Get_saveMODE(Save_num,gamefilesize);
 	if(MENU_line<2){//work for psram
 		if(gamefilesize > 0x2000000){
-			ShowbootProgress(gl_file_overflow);	
+			ShowbootProgress(gl_file_overflow);
 			wait_btn();
-			return 0;	
-		}	
-		
-		ShowbootProgress(gl_check_sav);	
+			return 0;
+		}
+
+		ShowbootProgress(gl_check_sav);
 		res = f_mkdir(SAVER_FOLDER);//"/SAVER"
 		if((res != FR_OK) && (res != FR_EXIST)){
 			error_num = 2;
 			Show_error_num(error_num);
 			return 0;
-		}		
-		
-		error_num = Process_savefile(is_EMU,pfilename,gamefilesize,SAVEMODE);	
+		}
+
+		error_num = Process_savefile(is_EMU,pfilename,gamefilesize,SAVEMODE);
 		if(error_num != 0){
 			Show_error_num(error_num);
 			return 0;
 		}
-		Make_recently_play_file(currentpath,pfilename);	//make txt in /SAVER	
-			
-	}	
-								
+		Make_recently_play_file(currentpath,pfilename);	//make txt in /SAVER
+
+	}
+
 	if(is_EMU) //boot emu game
-	{			
-		ShowbootProgress(gl_loading_game);	
+	{
+		ShowbootProgress(gl_loading_game);
 		f_chdir(currentpath);//return to game folder
-		
+
 	  FAT_table_buffer[0x1F4/4] = SET_PARAMETER_MODE;
 		Send_FATbuffer(FAT_table_buffer,1);
-							
+
 		res=LoadEMU2PSRAM(pfilename,is_EMU);
 		SetRompageWithHardReset(0x200,key_L);
 		while(1);
-	}		
+	}
 	else {	//gba file
 		if(old_Save_num != Save_num){
 			error_num = Make_mde_file(pfilename,Save_num);
@@ -2875,7 +2965,7 @@ re_show_menu:
 				return 0;
 			}
 		}
-		
+
 		f_chdir(currentpath);//return to game folder
 		res = Check_game_RTS_FAT(pfilename,1);//game FAT
 		if(res == 0xffffffff){
@@ -2883,10 +2973,10 @@ re_show_menu:
 			Show_error_num(error_num);
 			return 0;
 		}
-		
+
   	switch(MENU_line){
   		case 0://DirectPSRAM CLEAN BOOT
-  			ShowbootProgress(gl_loading_game); 			
+  			ShowbootProgress(gl_loading_game);
 
 				Send_FATbuffer(FAT_table_buffer,0);
 				GBApatch_Cleanrom(PSRAMBase_S98,gamefilesize);
@@ -2902,62 +2992,62 @@ re_show_menu:
 				if((gl_reset_on==1) || (gl_rts_on==1) || (gl_sleep_on==1) || (gl_cheat_on==1))
 				{
 					if(gl_rts_on==1)
-					{		
-						ShowbootProgress(gl_check_RTS);		
+					{
+						ShowbootProgress(gl_check_RTS);
 						u32 size = Check_RTS(pfilename);
 						if(size ==0){
 							error_num = 6;
 							Show_error_num(error_num);
 							return 0;
 						}
-					}	
-					ShowbootProgress(gl_check_pat);						
+					}
+					ShowbootProgress(gl_check_pat);
 					have_pat = Check_pat(pfilename);
-					if(have_pat==1)	
-					{			
-			    	Send_FATbuffer(FAT_table_buffer,0);//Loading rom	
-					}	
+					if(have_pat==1)
+					{
+			    	Send_FATbuffer(FAT_table_buffer,0);//Loading rom
+					}
 					else //(have_pat==0)
 					{
-						f_chdir(currentpath);//return to game folder	
+						f_chdir(currentpath);//return to game folder
 						//get the location for the patch
-						res = f_open(&gfile,pfilename, FA_READ);	
+						res = f_open(&gfile,pfilename, FA_READ);
 						f_lseek(&gfile, (gamefilesize-1)&0xFFFE0000);
 						f_read(&gfile, pReadCache, 0x20000, (UINT*)&ret);
 						f_close(&gfile);
-						SetTrimSize(pReadCache,gamefilesize,0x20000,0x0,SAVEMODE);						
+						SetTrimSize(pReadCache,gamefilesize,0x20000,0x0,SAVEMODE);
 						if((gl_engine_sel==0) || (gl_select_lang == 0xE2E2))
-						{	
-								get_find:		
+						{
+								get_find:
 			    		FAT_table_buffer[0x1F4/4] = SET_PARAMETER_MODE;
-							Send_FATbuffer(FAT_table_buffer,1);												
+							Send_FATbuffer(FAT_table_buffer,1);
 			    		res=Loadfile2PSRAM(pfilename);
 							ShowbootProgress(gl_make_pat);
-							Make_pat_file(pfilename);		    		
+							Make_pat_file(pfilename);
 						}
-						else 
+						else
 						{
-			    		res=use_internal_engine(GAMECODE);	
-			    		if(res == 1) 
+			    		res=use_internal_engine(GAMECODE);
+			    		if(res == 1)
 			    		{
-			    			Send_FATbuffer(FAT_table_buffer,0);//Loading rom	
+			    			Send_FATbuffer(FAT_table_buffer,0);//Loading rom
 			    		}
 			    		else
 			    		{
 			    			goto get_find;
 			    		}
 						}
-					}	
+					}
 	    		Patch_SpecialROM_sleepmode();//
-	    		GBApatch_PSRAM(PSRAMBase_S98,gamefilesize);																																			
+	    		GBApatch_PSRAM(PSRAMBase_S98,gamefilesize);
 				}
 				else{//no select switch ,CLEAN
-					Send_FATbuffer(FAT_table_buffer,0);//Loading rom		
+					Send_FATbuffer(FAT_table_buffer,0);//Loading rom
 				}
-				//wait_btn();	
+				//wait_btn();
 	    	SetRompageWithHardReset(0x200,key_L);
 	    	break;
-	    case 2://WRITE TO NOR CLEAN    	
+	    case 2://WRITE TO NOR CLEAN
 	    	f_chdir(currentpath);//return to game folder
 				res = Loadfile2NOR(pfilename, gl_norOffset,0x0,SAVEMODE);
 				if(res==0)//ok
@@ -2972,7 +3062,7 @@ re_show_menu:
 				{
 					Clear(0,160-15,200,15,gl_color_cheat_black,1);
 					DrawHZText12(gl_NOR_full,0,0,160-15, gl_color_NORFULL,1);//"NOR FULL!"
-					wait_btn();	
+					wait_btn();
 					return 1;
 				}
 	    	break;
@@ -2981,15 +3071,15 @@ re_show_menu:
 				gl_rts_on = Read_SET_info(assress_v_rts);
 				gl_sleep_on = Read_SET_info(assress_v_sleep);
 				gl_cheat_on = Read_SET_info(assress_v_cheat);
-														
-				f_chdir(currentpath);//return to game folder	
+
+				f_chdir(currentpath);//return to game folder
 				u32 needpatch = 0;
-				if((gl_reset_on==1) || (gl_rts_on==1) || (gl_sleep_on==1) || (gl_cheat_on==1))		    	
+				if((gl_reset_on==1) || (gl_rts_on==1) || (gl_sleep_on==1) || (gl_cheat_on==1))
 	    	{
 	    		Patch_SpecialROM_sleepmode();//
-      				
+
 					//get the location of the patch
-					res = f_open(&gfile,pfilename, FA_READ);	
+					res = f_open(&gfile,pfilename, FA_READ);
 					if(res==FR_OK){
 						f_lseek(&gfile, (gamefilesize-1)&0xFFFE0000);
 						f_read(&gfile, pReadCache, 0x20000, (UINT*)&ret);
@@ -2999,7 +3089,7 @@ re_show_menu:
 					needpatch = 1;
 				}
 				res = Loadfile2NOR(pfilename, gl_norOffset,needpatch,SAVEMODE);
-				//wait_btn();	
+				//wait_btn();
 				if(res==0)
 				{
 					if(gl_norOffset==0)//first game need set saveMODE
@@ -3007,18 +3097,18 @@ re_show_menu:
 						Set_saveMODE(SAVEMODE);
 					}
 					return 2;
-				}	
+				}
 				else if(res==2)
 				{
 			    Clear(0,160-15,200,15,gl_color_cheat_black,1);
 					DrawHZText12(gl_NOR_full,0,0,160-15, gl_color_NORFULL,1);//"NOR FULL!"
-					wait_btn();	
+					wait_btn();
 					return 0;
-				}		
+				}
 	    	break;
 	    default:
 	    	break;
 	  }
-	}	
+	}
 	return 0;
 }
